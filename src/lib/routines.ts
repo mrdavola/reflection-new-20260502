@@ -1,4 +1,15 @@
-import type { RoutineStep, SessionConfig } from "./types";
+import type { RoutineStep, RoutineStepLabel, SessionConfig } from "./types";
+
+export type RoutineDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  bestForTags: string[];
+  config: SessionConfig;
+  steps: RoutineStep[];
+  peerVotingDefault: boolean;
+  headlineStep?: RoutineStepLabel;
+};
 
 export const DEFAULT_SESSION_CONFIG: SessionConfig = {
   aiFollowupsEnabled: true,
@@ -42,7 +53,9 @@ export const SEE_THINK_WONDER_ROUTINE = {
         "Celebrate curiosity and push toward investigable, meaningful questions.",
     },
   ] satisfies RoutineStep[],
-};
+  peerVotingDefault: true,
+  headlineStep: "Wonder" as const,
+} satisfies RoutineDefinition;
 
 export const WOULD_YOU_RATHER_ROUTINE = {
   id: "would-you-rather",
@@ -66,7 +79,8 @@ export const WOULD_YOU_RATHER_ROUTINE = {
       followUpGuidance: "Push for a specific example or connection to the curriculum.",
     },
   ] satisfies RoutineStep[],
-};
+  peerVotingDefault: false,
+} satisfies RoutineDefinition;
 
 export const I_USED_TO_THINK_ROUTINE = {
   id: "i-used-to-think",
@@ -92,7 +106,9 @@ export const I_USED_TO_THINK_ROUTINE = {
         "Quote the student's 'Used to Think' response and ask: what specific moment, idea, or evidence caused that shift?",
     },
   ] satisfies RoutineStep[],
-};
+  peerVotingDefault: true,
+  headlineStep: "Now I Think" as const,
+} satisfies RoutineDefinition;
 
 export const CLAIM_SUPPORT_QUESTION_ROUTINE = {
   id: "claim-support-question",
@@ -126,7 +142,9 @@ export const CLAIM_SUPPORT_QUESTION_ROUTINE = {
         "Celebrate genuine uncertainty. Push toward investigable questions that connect to the claim.",
     },
   ] satisfies RoutineStep[],
-};
+  peerVotingDefault: true,
+  headlineStep: "Claim" as const,
+} satisfies RoutineDefinition;
 
 export function getRoutineStep(stepNumber: number, routineId?: string) {
   const routineSteps =
