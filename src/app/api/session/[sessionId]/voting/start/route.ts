@@ -110,10 +110,10 @@ export async function POST(
     }
 
     // Build voting pool
-    const votingPool = buildVotingPool(responsesWithAlerts);
+    const pool = buildVotingPool(responsesWithAlerts);
 
     // Extract amber-flagged responses for teacher review
-    const amberFlaggedIds = votingPool.excludedByAmberAlertIds;
+    const amberFlaggedIds = pool.excludedByAmberAlertIds;
     const amberFlaggedResponses = responsesWithAlerts
       .filter((r) => amberFlaggedIds.includes(r.id))
       .map((r) => {
@@ -136,6 +136,13 @@ export async function POST(
       });
 
     // Update session with voting pool and state
+    // Per spec: excludedByAmberAlertIds starts empty (teacher hasn't made decisions yet)
+    const votingPool = {
+      eligibleReflectionIds: pool.eligibleReflectionIds,
+      excludedByRedAlertIds: pool.excludedByRedAlertIds,
+      excludedByAmberAlertIds: [],
+    };
+
     await updateSession(sessionId, {
       votingState: 'review_pending',
       votingPool,
