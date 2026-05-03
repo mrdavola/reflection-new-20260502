@@ -88,19 +88,10 @@ export function selectFinalists(
 }
 
 /**
- * Seeded pseudo-random number generator using linear congruential generator.
- */
-function seededRandom(seed: number): number {
-  const a = 1664525;
-  const c = 1013904223;
-  const m = 2 ** 32;
-  return ((a * seed + c) % m) / m;
-}
-
-/**
  * Generate a randomized sample of responses for a round-1 ballot.
  * Ensures deterministic shuffle based on sessionId and voterStudentId.
  * Excludes the voter's own response from the sample.
+ * Uses Fisher-Yates algorithm for uniform distribution.
  */
 export function generateBallotSample(
   eligibleIds: string[],
@@ -121,14 +112,16 @@ export function generateBallotSample(
   let seed = 0;
   for (let i = 0; i < seedString.length; i++) {
     seed = ((seed << 5) - seed) + seedString.charCodeAt(i);
-    seed = seed & seed; // Convert to 32bit integer
+    seed = seed | 0; // Convert to 32-bit integer
   }
 
-  // Deterministic shuffle using seeded RNG
-  const shuffled = [...filteredIds].sort(() => {
+  // Fisher-Yates shuffle using seeded RNG
+  const shuffled = [...filteredIds];
+  for (let i = shuffled.length - 1; i > 0; i--) {
     seed = ((seed * 1103515245 + 12345) >>> 0) % (2 ** 31);
-    return seededRandom(seed) - 0.5;
-  });
+    const j = Math.floor((seed / (2 ** 31)) * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
 
   return shuffled.slice(0, Math.min(sampleSize, filteredIds.length));
 }

@@ -3,8 +3,9 @@ import {
   buildVotingPool,
   aggregateVotes,
   selectFinalists,
+  generateBallotSample,
 } from './voting';
-import type { ReflectionStep, SafetyAlert } from '../types';
+import type { SafetyAlert } from '../types';
 
 describe('Voting helpers', () => {
   describe('buildVotingPool', () => {
@@ -74,6 +75,88 @@ describe('Voting helpers', () => {
       expect(result.length).toBeGreaterThanOrEqual(3);
       expect(result).toContain('r1');
       expect(result).toContain('r2');
+    });
+  });
+
+  describe('generateBallotSample', () => {
+    it('returns deterministic sample for same inputs', () => {
+      const result1 = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5'],
+        'sess1',
+        'voter1',
+        8
+      );
+      const result2 = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5'],
+        'sess1',
+        'voter1',
+        8
+      );
+      expect(result1).toEqual(result2);
+    });
+
+    it('excludes voter own response', () => {
+      const result = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5'],
+        'sess1',
+        'voter1',
+        8,
+        'r3'
+      );
+      expect(result).not.toContain('r3');
+    });
+
+    it('returns 3 responses for small class (5-7)', () => {
+      const result = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5'],
+        'sess1',
+        'voter1',
+        5
+      );
+      expect(result).toHaveLength(3);
+    });
+
+    it('returns 4 responses for large class (8+)', () => {
+      const result = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'],
+        'sess1',
+        'voter1',
+        8
+      );
+      expect(result).toHaveLength(4);
+    });
+
+    it('handles fewer eligible responses than sample size', () => {
+      const result = generateBallotSample(['r1', 'r2'], 'sess1', 'voter1', 8);
+      expect(result).toHaveLength(2);
+    });
+
+    it('handles undefined voterReflectionId', () => {
+      const result = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4'],
+        'sess1',
+        'voter1',
+        8,
+        undefined
+      );
+      expect(result).toHaveLength(4);
+    });
+
+    it('returns different samples for different voters', () => {
+      const result1 = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5'],
+        'sess1',
+        'voter1',
+        8
+      );
+      const result2 = generateBallotSample(
+        ['r1', 'r2', 'r3', 'r4', 'r5'],
+        'sess1',
+        'voter2',
+        8
+      );
+      // Results should differ due to different voter IDs affecting the seed
+      expect(result1.join(',')).not.toBe(result2.join(','));
     });
   });
 });
