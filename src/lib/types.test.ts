@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { SessionConfig, VotingState, PeerVote } from './types';
+import type { SessionConfig, VotingState, PeerVote, VotingPool } from './types';
 
 describe('Voting types', () => {
   it('should allow votingState on Session', () => {
@@ -31,5 +31,14 @@ describe('Voting types', () => {
       createdAt: new Date(),
     };
     expect(vote.round).toBe(1);
+  });
+
+  it('should create VotingPool records', () => {
+    const pool: VotingPool = {
+      eligibleReflectionIds: ['r1', 'r2'],
+      excludedByRedAlertIds: [],
+      excludedByAmberAlertIds: [],
+    };
+    expect(pool.eligibleReflectionIds).toHaveLength(2);
   });
 });

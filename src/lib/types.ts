@@ -103,8 +103,8 @@ export type VotingState =
 
 export type VotingPool = {
   eligibleReflectionIds: string[];
-  excludedRedIds: string[];
-  excludedAmberIds: string[];
+  excludedByRedAlertIds: string[];
+  excludedByAmberAlertIds: string[];
   finalistReflectionIds?: string[];
   winnerReflectionId?: string;
   rankedTop3?: Array<{

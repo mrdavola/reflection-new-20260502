@@ -13,6 +13,7 @@ const baseDashboard: DashboardPayload = {
     config: {
       aiFollowupsEnabled: true,
       voiceMinimumSeconds: 5,
+      annotationMode: false,
       responseMode: "choice",
       showTranscription: true,
       studentResultsVisibility: "full",
