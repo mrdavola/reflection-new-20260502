@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import { AccountMenu } from "@/app/teacher/account-menu";
 import { getPriorityCards, getTeacherNextMove } from "@/lib/actionability";
+import { getRoutineDashboardPanels } from "@/lib/dashboard-panels";
 import type { DashboardPayload } from "@/lib/models";
+import type { ClassThinkingMap, RoutineStepLabel } from "@/lib/types";
 
 export default function LiveDashboard({ sessionId }: { sessionId: string }) {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
@@ -500,56 +502,7 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
               </div>
             </section>
           ) : (
-            <section className="panel p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="display-type text-4xl font-bold">Class Thinking Map</h2>
-                  <p className="mt-1 text-base font-semibold">
-                    Clusters update as students finish each step.
-                  </p>
-                </div>
-                <Lightbulb className="text-[#006cff]" />
-              </div>
-              {session.routineId === "see-think-wonder" &&
-              session.stimulus.kind === "image" ? (
-                <AnnotationOverlay
-                  imageUrl={session.stimulus.value}
-                  reflections={reflections}
-                />
-              ) : null}
-              <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                {(["see", "think", "wonder"] as const).map((key) => (
-                  <div key={key} className="soft-panel min-h-[420px] p-4">
-                    <h3 className="display-type text-3xl font-bold capitalize">{key}</h3>
-                    <div className="mt-4 space-y-3">
-                      {session.classThinkingMap[key].length === 0 ? (
-                        <p className="text-sm font-bold">No responses yet.</p>
-                      ) : (
-                        session.classThinkingMap[key].map((cluster) => (
-                          <article
-                            key={cluster.label}
-                            className="rounded-[20px] border-2 border-black bg-white p-4"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-lg font-black">{cluster.label}</p>
-                              <span className="rounded-full border-2 border-black bg-[#04c6c5] px-2 py-1 text-xs font-black">
-                                {cluster.studentIds.length}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm font-semibold leading-6">
-                              {cluster.summary}
-                            </p>
-                            <p className="mt-3 border-l-4 border-[#006cff] pl-3 text-sm font-bold">
-                              “{cluster.representativeQuotes[0]}”
-                            </p>
-                          </article>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <RoutineThinkingMapSection dashboard={dashboard} />
           )}
 
           <aside className="space-y-5">
@@ -656,6 +609,158 @@ function StimulusPreview({
       )}
     </section>
   );
+}
+
+function RoutineThinkingMapSection({
+  dashboard,
+}: {
+  dashboard: DashboardPayload;
+}) {
+  const { session, reflections } = dashboard;
+  const config = getRoutineDashboardPanels(
+    session.routineId,
+    session.exitTicketMaxTurns ?? 4,
+  );
+  const gridClass =
+    config.panels.length === 2
+      ? "lg:grid-cols-2"
+      : config.panels.length === 4
+        ? "lg:grid-cols-2 2xl:grid-cols-4"
+        : "lg:grid-cols-3";
+
+  return (
+    <section className="panel p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="display-type text-4xl font-bold">{config.title}</h2>
+          <p className="mt-1 text-base font-semibold">{config.subtitle}</p>
+        </div>
+        <Lightbulb className="text-[#006cff]" />
+      </div>
+      {session.routineId === "see-think-wonder" &&
+      session.stimulus.kind === "image" ? (
+        <AnnotationOverlay
+          imageUrl={session.stimulus.value}
+          reflections={reflections}
+        />
+      ) : null}
+      {session.routineId === "quick-spin" || session.routineId === "exit-ticket-conversation" ? (
+        <div className="mt-5 rounded-[24px] border-2 border-black bg-[#fff2b7] p-5">
+          <p className="text-sm font-black uppercase tracking-[0.08em]">
+            Teacher prompt
+          </p>
+          <p className="mt-2 text-2xl font-black leading-8">
+            {session.exitTicketQuestion}
+          </p>
+        </div>
+      ) : null}
+      <div className={`mt-5 grid gap-4 ${gridClass}`}>
+        {config.panels.map((panel) => (
+          <div key={panel.label} className="soft-panel min-h-[360px] p-4">
+            <div className={`rounded-[18px] border-2 border-black p-4 ${panel.accentClass}`}>
+              <h3 className="display-type text-3xl font-bold">{panel.label}</h3>
+              <p className="mt-1 text-sm font-black leading-5 opacity-80">
+                {panel.description}
+              </p>
+            </div>
+            <div className="mt-4 space-y-3">
+              {session.routineId === "see-think-wonder" ? (
+                <ThinkingMapClusters
+                  map={session.classThinkingMap}
+                  label={panel.stepLabels[0]}
+                />
+              ) : (
+                <StepResponseCards
+                  reflections={reflections}
+                  labels={panel.stepLabels}
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ThinkingMapClusters({
+  map,
+  label,
+}: {
+  map: ClassThinkingMap;
+  label: RoutineStepLabel;
+}) {
+  const key = label === "See" ? "see" : label === "Think" ? "think" : "wonder";
+  const clusters = map[key];
+
+  if (clusters.length === 0) {
+    return <p className="text-sm font-bold">No responses yet.</p>;
+  }
+
+  return clusters.map((cluster) => (
+    <article
+      key={cluster.label}
+      className="rounded-[20px] border-2 border-black bg-white p-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-lg font-black">{cluster.label}</p>
+        <span className="rounded-full border-2 border-black bg-[#04c6c5] px-2 py-1 text-xs font-black">
+          {cluster.studentIds.length}
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-semibold leading-6">{cluster.summary}</p>
+      <p className="mt-3 border-l-4 border-[#006cff] pl-3 text-sm font-bold">
+        &ldquo;{cluster.representativeQuotes[0]}&rdquo;
+      </p>
+    </article>
+  ));
+}
+
+function StepResponseCards({
+  reflections,
+  labels,
+}: {
+  reflections: DashboardPayload["reflections"];
+  labels: RoutineStepLabel[];
+}) {
+  const responses = reflections.flatMap((reflection) =>
+    reflection.steps
+      .filter((step) => labels.includes(step.label))
+      .map((step) => ({
+        id: `${reflection.id}-${step.label}`,
+        displayName: reflection.displayName,
+        step,
+      })),
+  );
+
+  if (responses.length === 0) {
+    return <p className="text-sm font-bold">No responses yet.</p>;
+  }
+
+  return responses.map((response) => (
+    <article
+      key={response.id}
+      className="rounded-[20px] border-2 border-black bg-white p-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-black">{response.displayName}</p>
+        <Rating rating={response.step.rating ?? response.step.depthScore ?? 1} />
+      </div>
+      <p className="mt-3 text-base font-black leading-6">
+        &ldquo;{response.step.directQuote ?? response.step.transcription}&rdquo;
+      </p>
+      {response.step.teacherSummary ? (
+        <p className="mt-2 text-sm font-bold leading-5 text-black/70">
+          {response.step.teacherSummary}
+        </p>
+      ) : null}
+      {response.step.followUpQuestion ? (
+        <p className="mt-3 border-l-4 border-[#006cff] pl-3 text-sm font-black leading-5">
+          Next: {response.step.followUpQuestion}
+        </p>
+      ) : null}
+    </article>
+  ));
 }
 
 function AnnotationOverlay({
