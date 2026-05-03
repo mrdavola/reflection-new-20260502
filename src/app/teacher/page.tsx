@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { signInWithPopup, signOut } from "firebase/auth";
+import { getRedirectResult, signInWithRedirect, signOut } from "firebase/auth";
 import {
   ArrowRight,
   Brain,
@@ -44,28 +44,11 @@ export default function TeacherPage() {
       setAuthError("Firebase Auth is not configured in this environment.");
       return;
     }
-
     setAuthenticating(true);
     setAuthError("");
-    try {
-      const credential = await signInWithPopup(auth, googleProvider);
-      const idToken = await credential.user.getIdToken();
-      const sessionResponse = await fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      });
-      const sessionData = await sessionResponse.json();
-      if (!sessionResponse.ok) {
-        throw new Error(sessionData.error ?? "Could not start teacher session.");
-      }
-      setIsTeacherSession(true);
-      await loadSessions();
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not sign in.");
-    } finally {
-      setAuthenticating(false);
-    }
+    // Redirect-based auth works on all browsers — no popup blocked errors
+    await signInWithRedirect(auth, googleProvider);
+    // Page navigates away; the useEffect below handles the result on return
   }
 
   async function signOutTeacher() {
@@ -91,22 +74,48 @@ export default function TeacherPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/sessions", { cache: "no-store" })
-      .then(async (response) => {
-        if (response.status === 401) {
-          setIsTeacherSession(false);
-          setLoading(false);
-          return null;
+
+    async function init() {
+      // Handle Google redirect sign-in return
+      const { auth, googleProvider } = getFirebaseClientServices();
+      if (auth && googleProvider) {
+        try {
+          const result = await getRedirectResult(auth);
+          if (result && active) {
+            const idToken = await result.user.getIdToken();
+            const sessionResponse = await fetch("/api/auth/session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken }),
+            });
+            if (!sessionResponse.ok) {
+              const data = await sessionResponse.json();
+              setAuthError(data.error ?? "Could not start teacher session.");
+            }
+          }
+        } catch (error) {
+          if (active) {
+            setAuthError(error instanceof Error ? error.message : "Could not sign in.");
+          }
         }
-        return response.json();
-      })
-      .then((data) => {
-        if (!data) return;
-        if (!active) return;
-        setIsTeacherSession(true);
-        setSessions(data.sessions ?? []);
+      }
+
+      // Load sessions (works whether we just redirected back or already signed in)
+      const response = await fetch("/api/sessions", { cache: "no-store" });
+      if (!active) return;
+      if (response.status === 401) {
+        setIsTeacherSession(false);
         setLoading(false);
-      });
+        return;
+      }
+      const data = await response.json();
+      if (!active) return;
+      setIsTeacherSession(true);
+      setSessions(data.sessions ?? []);
+      setLoading(false);
+    }
+
+    init();
 
     return () => {
       active = false;
