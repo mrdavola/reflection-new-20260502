@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { signInWithPopup, signOut } from "firebase/auth";
 import {
@@ -24,6 +24,8 @@ export default function TeacherPage() {
   const [authenticating, setAuthenticating] = useState(false);
   const [isTeacherSession, setIsTeacherSession] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [pilotUsername, setPilotUsername] = useState("teacher");
+  const [pilotPassword, setPilotPassword] = useState("");
 
   async function loadSessions() {
     const response = await fetch("/api/sessions", { cache: "no-store" });
@@ -35,6 +37,17 @@ export default function TeacherPage() {
     const data = await response.json();
     setIsTeacherSession(true);
     setSessions(data.sessions ?? []);
+    setLoading(false);
+  }
+
+  async function refreshSessionsAfterSignIn() {
+    setIsTeacherSession(true);
+    setLoading(true);
+    const sessionsResponse = await fetch("/api/sessions", { cache: "no-store" });
+    if (sessionsResponse.ok) {
+      const data = await sessionsResponse.json();
+      setSessions(data.sessions ?? []);
+    }
     setLoading(false);
   }
 
@@ -60,14 +73,7 @@ export default function TeacherPage() {
       }
       // Fetch sessions directly — don't call loadSessions() which can override
       // isTeacherSession back to false if the cookie hasn't propagated yet
-      setIsTeacherSession(true);
-      setLoading(true);
-      const sessionsResponse = await fetch("/api/sessions", { cache: "no-store" });
-      if (sessionsResponse.ok) {
-        const data = await sessionsResponse.json();
-        setSessions(data.sessions ?? []);
-      }
-      setLoading(false);
+      await refreshSessionsAfterSignIn();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not sign in.";
       if (message.includes("popup-blocked") || message.includes("popup_blocked")) {
@@ -77,6 +83,31 @@ export default function TeacherPage() {
       } else {
         setAuthError(message);
       }
+    } finally {
+      setAuthenticating(false);
+    }
+  }
+
+  async function signInPilot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAuthenticating(true);
+    setAuthError("");
+    try {
+      const sessionResponse = await fetch("/api/auth/pilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: pilotUsername,
+          password: pilotPassword,
+        }),
+      });
+      const sessionData = await sessionResponse.json();
+      if (!sessionResponse.ok) {
+        throw new Error(sessionData.error ?? "Could not start pilot session.");
+      }
+      await refreshSessionsAfterSignIn();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not sign in.");
     } finally {
       setAuthenticating(false);
     }
@@ -133,7 +164,7 @@ export default function TeacherPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black md:px-8">
+    <main className="min-h-dvh bg-[#fdcb40] px-5 py-5 text-black sm:py-6 md:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3">
@@ -151,17 +182,17 @@ export default function TeacherPage() {
                 disabled={authenticating}
                 className="focus-ring inline-flex items-center justify-center gap-2 rounded-full border-2 border-black bg-[#006cff] px-5 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
               >
-                {authenticating ? "Signing in..." : "Sign in"}
+                {authenticating ? "Signing in..." : "Google sign in"}
               </button>
             )}
           </div>
         </header>
 
         <div>
-          <h1 className="display-type mt-10 max-w-4xl text-[4.6rem] font-bold leading-[0.85] md:text-[7rem]">
+          <h1 className="display-type mt-10 max-w-4xl text-[4.15rem] font-bold leading-[0.85] sm:text-[5.8rem] md:text-[6.8rem]">
             Make thinking visible.
           </h1>
-          <p className="mt-6 max-w-2xl text-2xl font-semibold leading-8">
+          <p className="mt-6 max-w-3xl text-xl font-semibold leading-8 sm:text-2xl">
             Launch a reflection, project the join code, and watch thinking
             patterns emerge while students finish.
           </p>
@@ -249,13 +280,63 @@ export default function TeacherPage() {
 
         <section className="mt-10 grid gap-4">
           {!isTeacherSession ? (
-            <div className="panel p-10">
-              <p className="display-type text-4xl font-bold">Teacher sign-in required</p>
-              <p className="mt-3 max-w-xl text-xl font-semibold leading-7">
-                Use your Google school account to open pilot sessions. Please sign in using the button in the top right corner.
-              </p>
+            <div className="panel grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_420px] lg:p-10">
+              <div>
+                <p className="display-type text-4xl font-bold sm:text-5xl">
+                  Teacher sign-in required
+                </p>
+                <p className="mt-3 max-w-xl text-lg font-semibold leading-7 sm:text-xl">
+                  Use the pilot login for now, or your Google school account when
+                  popups are available. The pilot login works cleanly on phones,
+                  tablets, and laptops.
+                </p>
+                <div className="mt-5 rounded-[22px] border-2 border-black bg-[#fff2b7] p-4 text-base font-black leading-6">
+                  Pilot username: <span className="font-black">teacher</span>
+                  <br />
+                  Pilot password: <span className="font-black">reflect</span>
+                </div>
+              </div>
+
+              <form onSubmit={signInPilot} className="rounded-[24px] border-2 border-black bg-[#fff2b7] p-5">
+                <p className="text-sm font-black uppercase tracking-[0.08em]">
+                  Simple pilot login
+                </p>
+                <label className="mt-4 grid gap-2">
+                  <span className="text-sm font-black uppercase tracking-[0.08em]">
+                    Username
+                  </span>
+                  <input
+                    value={pilotUsername}
+                    onChange={(event) => setPilotUsername(event.target.value)}
+                    className="focus-ring w-full rounded-full border-2 border-black bg-white px-5 py-3 text-lg font-black"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                  />
+                </label>
+                <label className="mt-4 grid gap-2">
+                  <span className="text-sm font-black uppercase tracking-[0.08em]">
+                    Password
+                  </span>
+                  <input
+                    value={pilotPassword}
+                    onChange={(event) => setPilotPassword(event.target.value)}
+                    className="focus-ring w-full rounded-full border-2 border-black bg-white px-5 py-3 text-lg font-black"
+                    type="password"
+                    autoComplete="current-password"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={authenticating || pilotUsername.trim().length === 0 || pilotPassword.length === 0}
+                  className="focus-ring mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-black bg-[#fd4401] px-7 py-4 font-black text-white transition hover:-translate-y-0.5 disabled:opacity-50"
+                >
+                  {authenticating ? "Signing in..." : "Enter dashboard"}
+                  <ArrowRight size={18} />
+                </button>
+              </form>
+
               {authError ? (
-                <p className="mt-4 text-sm font-black text-[#fd4401]">{authError}</p>
+                <p className="text-sm font-black text-[#fd4401] lg:col-span-2">{authError}</p>
               ) : null}
             </div>
           ) : null}

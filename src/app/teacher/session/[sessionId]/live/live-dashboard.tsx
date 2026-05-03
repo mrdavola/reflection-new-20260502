@@ -303,7 +303,7 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
                             {usedToThink ? (
                               <>
                                 <p className="mt-3 text-lg font-black leading-6">
-                                  "{usedToThink.directQuote ?? usedToThink.transcription}"
+                                  &ldquo;{usedToThink.directQuote ?? usedToThink.transcription}&rdquo;
                                 </p>
                                 {usedToThink.followUpQuestion ? (
                                   <p className="mt-3 border-l-4 border-[#006cff] pl-3 text-sm font-black leading-6">
@@ -323,7 +323,7 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
                             {nowIThink ? (
                               <>
                                 <p className="mt-3 text-lg font-black leading-6">
-                                  "{nowIThink.directQuote ?? nowIThink.transcription}"
+                                  &ldquo;{nowIThink.directQuote ?? nowIThink.transcription}&rdquo;
                                 </p>
                                 {nowIThink.followUpQuestion ? (
                                   <p className="mt-3 border-l-4 border-[#00b351] pl-3 text-sm font-black leading-6">
@@ -404,7 +404,7 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
                               {step ? (
                                 <>
                                   <p className="mt-3 text-lg font-black leading-6">
-                                    "{step.directQuote ?? step.transcription}"
+                                    &ldquo;{step.directQuote ?? step.transcription}&rdquo;
                                   </p>
                                   {step.followUpQuestion ? (
                                     <p className={`mt-3 border-l-4 ${border} pl-3 text-sm font-black leading-6`}>

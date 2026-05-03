@@ -4,6 +4,8 @@ import { getParticipantByToken } from "./store";
 
 const TEACHER_COOKIE = "pilot_teacher_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
+const FALLBACK_PILOT_USERNAME = "teacher";
+const FALLBACK_PILOT_PASSWORD = "reflect";
 
 function getSessionSecret() {
   const secret = process.env.PILOT_SESSION_SECRET;
@@ -19,6 +21,21 @@ export function getTeacherCookieName() {
 
 export function getSessionMaxAge() {
   return SESSION_TTL_SECONDS;
+}
+
+export function getPilotCredentials() {
+  return {
+    username: process.env.PILOT_LOGIN_USERNAME?.trim() || FALLBACK_PILOT_USERNAME,
+    password: process.env.PILOT_LOGIN_PASSWORD?.trim() || FALLBACK_PILOT_PASSWORD,
+  };
+}
+
+export function verifyPilotCredentials(username: string, password: string) {
+  const credentials = getPilotCredentials();
+  return (
+    username.trim().toLowerCase() === credentials.username.toLowerCase() &&
+    password === credentials.password
+  );
 }
 
 export async function createTeacherSessionToken(payload: {

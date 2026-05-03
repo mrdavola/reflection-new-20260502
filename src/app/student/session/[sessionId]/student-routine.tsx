@@ -411,7 +411,9 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
               <p className="text-xs font-black uppercase tracking-[0.08em] text-black/50">
                 You used to think
               </p>
-              <p className="mt-2 text-xl font-bold leading-7">"{transcripts[0]}"</p>
+              <p className="mt-2 text-xl font-bold leading-7">
+                &ldquo;{transcripts[0]}&rdquo;
+              </p>
             </div>
           ) : null}
 

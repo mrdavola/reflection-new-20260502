@@ -3,8 +3,8 @@ import { ArrowRight, QrCode, Sparkles } from "lucide-react";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black md:px-8">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col">
+    <main className="min-h-dvh bg-[#fdcb40] px-5 py-5 text-black sm:py-6 md:px-8">
+      <section className="mx-auto flex max-w-6xl flex-col">
         <nav className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="grid size-12 place-items-center rounded-[16px] border-2 border-black bg-[#04c6c5] text-black">
@@ -14,20 +14,21 @@ export default function Home() {
           </div>
           <Link
             href="/teacher"
-            className="focus-ring inline-flex items-center justify-center gap-2 rounded-full border-2 border-black bg-[#fd4401] px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5"
+            className="focus-ring inline-flex items-center justify-center gap-2 rounded-full border-2 border-black bg-[#fd4401] px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 sm:px-5"
           >
-            Teacher dashboard
+            <span className="hidden sm:inline">Teacher dashboard</span>
+            <span className="sm:hidden">Teacher</span>
             <ArrowRight size={16} />
           </Link>
         </nav>
 
-        <div className="flex flex-1 flex-col justify-center">
-          <div className="grid items-center gap-10 py-14 lg:grid-cols-[1fr_460px]">
+        <div className="pt-12 pb-12 sm:pt-16 lg:pt-24">
+          <div className="grid items-center gap-8 lg:grid-cols-[1fr_460px]">
           <div>
-            <h1 className="display-type max-w-4xl text-[4.6rem] font-bold leading-[0.82] md:text-[7.8rem]">
+            <h1 className="display-type max-w-4xl text-[4.15rem] font-bold leading-[0.84] sm:text-[5.8rem] md:text-[7rem] lg:text-[7.8rem]">
               Make every student’s thinking visible.
             </h1>
-            <p className="mt-8 max-w-2xl text-2xl font-semibold leading-8">
+            <p className="mt-7 max-w-2xl text-xl font-semibold leading-8 sm:text-2xl">
               Launch a See Think Wonder reflection, let students speak or type,
               and watch class patterns become actionable in real time.
             </p>
@@ -49,7 +50,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="panel p-5">
+          <div className="panel p-4 sm:p-5">
             <div className="flex items-center justify-between border-b border-[#dce7e4] pb-4">
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.08em]">Class pulse</p>
@@ -59,15 +60,15 @@ export default function Home() {
                 STW-482
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 py-5">
+            <div className="grid grid-cols-3 gap-2 py-5 sm:gap-3">
               {["See", "Think", "Wonder"].map((label, index) => (
-                <div key={label} className="soft-panel min-h-36 p-4">
-                  <p className="display-type text-2xl font-bold">{label}</p>
+                <div key={label} className="soft-panel min-h-32 p-3 sm:min-h-36 sm:p-4">
+                  <p className="display-type text-xl font-bold sm:text-2xl">{label}</p>
                   <div className="mt-3 space-y-2">
                     {[0, 1, 2].slice(0, 3 - index).map((item) => (
                       <div
                         key={item}
-                        className="h-9 rounded-full border-2 border-black bg-white"
+                        className="h-8 rounded-full border-2 border-black bg-white sm:h-9"
                       />
                     ))}
                   </div>
