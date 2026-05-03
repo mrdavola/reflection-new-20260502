@@ -146,6 +146,86 @@ export const CLAIM_SUPPORT_QUESTION_ROUTINE = {
   headlineStep: "Claim" as const,
 } satisfies RoutineDefinition;
 
+export const EXIT_TICKET_CONVERSATION_ROUTINE = {
+  id: "exit-ticket-conversation",
+  name: "Exit Ticket",
+  description: "A brief reflection to assess student thinking before leaving class.",
+  bestForTags: ["closing", "assessment", "reflection"],
+  config: DEFAULT_SESSION_CONFIG,
+  steps: [
+    {
+      stepNumber: 1,
+      label: "Exit Ticket",
+      prompt: "Respond to the exit ticket question.",
+      studentCue: "Take your time to give a thoughtful response.",
+      followUpGuidance:
+        "Listen carefully and ask follow-up questions to deepen understanding.",
+    },
+    {
+      stepNumber: 2,
+      label: "Follow-up 1",
+      prompt: "Tell me more about that.",
+      studentCue: "Provide more detail or clarification.",
+      followUpGuidance: "Push for specificity and reasoning.",
+    },
+    {
+      stepNumber: 3,
+      label: "Follow-up 2",
+      prompt: "How does that connect to what we learned?",
+      studentCue: "Link your thinking back to the lesson.",
+      followUpGuidance: "Help them make meaningful connections.",
+    },
+    {
+      stepNumber: 4,
+      label: "Follow-up 3",
+      prompt: "What's one thing you'll remember from today?",
+      studentCue: "Reflect on the most important takeaway.",
+      followUpGuidance: "Celebrate key insights and growth.",
+    },
+  ] satisfies RoutineStep[],
+  peerVotingDefault: false,
+} satisfies RoutineDefinition;
+
+export const QUICK_SPIN_ROUTINE = {
+  id: "quick-spin",
+  name: "Reflection Spinner",
+  description: "Students spin the wheel and respond to a random reflection prompt.",
+  bestForTags: ["engagement", "variety", "quick"],
+  config: DEFAULT_SESSION_CONFIG,
+  steps: [
+    {
+      stepNumber: 1,
+      label: "Exit Ticket",
+      prompt: "Respond to the reflection prompt.",
+      studentCue: "Answer honestly and thoughtfully.",
+      followUpGuidance:
+        "Listen carefully and ask follow-up questions to deepen understanding.",
+    },
+    {
+      stepNumber: 2,
+      label: "Follow-up 1",
+      prompt: "Tell me more about that.",
+      studentCue: "Provide more detail or clarification.",
+      followUpGuidance: "Push for specificity and reasoning.",
+    },
+    {
+      stepNumber: 3,
+      label: "Follow-up 2",
+      prompt: "How does that connect to what we learned?",
+      studentCue: "Link your thinking back to the lesson.",
+      followUpGuidance: "Help them make meaningful connections.",
+    },
+    {
+      stepNumber: 4,
+      label: "Follow-up 3",
+      prompt: "What's one thing you'll remember from this?",
+      studentCue: "Reflect on the most important takeaway.",
+      followUpGuidance: "Celebrate key insights and growth.",
+    },
+  ] satisfies RoutineStep[],
+  peerVotingDefault: false,
+} satisfies RoutineDefinition;
+
 export function getRoutineStep(stepNumber: number, routineId?: string) {
   const routineSteps =
     routineId === "would-you-rather"
@@ -154,7 +234,11 @@ export function getRoutineStep(stepNumber: number, routineId?: string) {
         ? I_USED_TO_THINK_ROUTINE.steps
         : routineId === "claim-support-question"
           ? CLAIM_SUPPORT_QUESTION_ROUTINE.steps
-          : SEE_THINK_WONDER_ROUTINE.steps;
+          : routineId === "exit-ticket-conversation"
+            ? EXIT_TICKET_CONVERSATION_ROUTINE.steps
+            : routineId === "quick-spin"
+              ? QUICK_SPIN_ROUTINE.steps
+              : SEE_THINK_WONDER_ROUTINE.steps;
 
   const step = routineSteps.find(
     (item) => item.stepNumber === stepNumber,

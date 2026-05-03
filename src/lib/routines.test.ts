@@ -4,6 +4,8 @@ import {
   WOULD_YOU_RATHER_ROUTINE,
   I_USED_TO_THINK_ROUTINE,
   CLAIM_SUPPORT_QUESTION_ROUTINE,
+  EXIT_TICKET_CONVERSATION_ROUTINE,
+  QUICK_SPIN_ROUTINE,
   getRoutineStep,
 } from "./routines";
 
@@ -41,5 +43,15 @@ describe("Routine peer voting defaults", () => {
   it("Claim Support Question should have peerVotingDefault true", () => {
     expect(CLAIM_SUPPORT_QUESTION_ROUTINE.peerVotingDefault).toBe(true);
     expect(CLAIM_SUPPORT_QUESTION_ROUTINE.headlineStep).toBe("Claim");
+  });
+
+  it("Exit Ticket should have peerVotingDefault false", () => {
+    expect(EXIT_TICKET_CONVERSATION_ROUTINE.peerVotingDefault).toBe(false);
+    expect(EXIT_TICKET_CONVERSATION_ROUTINE.headlineStep).toBeUndefined();
+  });
+
+  it("Quick Spin should have peerVotingDefault false", () => {
+    expect(QUICK_SPIN_ROUTINE.peerVotingDefault).toBe(false);
+    expect(QUICK_SPIN_ROUTINE.headlineStep).toBeUndefined();
   });
 });
