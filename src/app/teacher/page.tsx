@@ -47,7 +47,6 @@ export default function TeacherPage() {
     setAuthenticating(true);
     setAuthError("");
     try {
-      // Firebase is pre-warmed in useEffect so popup opens on the first tick
       const credential = await signInWithPopup(auth, googleProvider);
       const idToken = await credential.user.getIdToken();
       const sessionResponse = await fetch("/api/auth/session", {
@@ -59,10 +58,25 @@ export default function TeacherPage() {
       if (!sessionResponse.ok) {
         throw new Error(sessionData.error ?? "Could not start teacher session.");
       }
+      // Fetch sessions directly — don't call loadSessions() which can override
+      // isTeacherSession back to false if the cookie hasn't propagated yet
       setIsTeacherSession(true);
-      await loadSessions();
+      setLoading(true);
+      const sessionsResponse = await fetch("/api/sessions", { cache: "no-store" });
+      if (sessionsResponse.ok) {
+        const data = await sessionsResponse.json();
+        setSessions(data.sessions ?? []);
+      }
+      setLoading(false);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Could not sign in.");
+      const message = error instanceof Error ? error.message : "Could not sign in.";
+      if (message.includes("popup-blocked") || message.includes("popup_blocked")) {
+        setAuthError("Sign-in popup was blocked. Please allow popups for this site in your browser settings, then try again.");
+      } else if (message.includes("popup-closed") || message.includes("popup_closed")) {
+        setAuthError("Sign-in was cancelled. Try again.");
+      } else {
+        setAuthError(message);
+      }
     } finally {
       setAuthenticating(false);
     }
@@ -308,7 +322,7 @@ function LaunchCard({
       <p className="mt-5 text-sm font-black uppercase tracking-[0.08em]">
         {kicker}
       </p>
-      <h2 className="display-type mt-2 text-4xl font-bold leading-none">{title}</h2>
+      <h2 className="display-type mt-2 text-3xl font-bold leading-tight">{title}</h2>
       <p className="mt-4 text-lg font-bold leading-7">{body}</p>
       <span className="mt-6 inline-flex items-center gap-2 rounded-full border-2 border-black bg-white px-5 py-3 text-sm font-black text-black">
         Launch <ArrowRight size={16} />
