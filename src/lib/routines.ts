@@ -94,13 +94,49 @@ export const I_USED_TO_THINK_ROUTINE = {
   ] satisfies RoutineStep[],
 };
 
+export const CLAIM_SUPPORT_QUESTION_ROUTINE = {
+  id: "claim-support-question",
+  name: "Claim Support Question",
+  description: "Students make a claim, provide supporting evidence, then ask a question their claim raises.",
+  bestForTags: ["argumentation", "evidence", "critical thinking"],
+  config: DEFAULT_SESSION_CONFIG,
+  steps: [
+    {
+      stepNumber: 1,
+      label: "Claim" as const,
+      prompt: "What is your claim?",
+      studentCue: "Make a clear statement about what you believe or have learned.",
+      followUpGuidance:
+        "Push for a specific, debatable claim — not just a fact. Ask: could someone disagree with this?",
+    },
+    {
+      stepNumber: 2,
+      label: "Support" as const,
+      prompt: "What evidence supports your claim?",
+      studentCue: "Name specific details, examples, or reasoning that back up what you said.",
+      followUpGuidance:
+        "Ask for the strongest piece of evidence. Push beyond opinions to concrete, citable details.",
+    },
+    {
+      stepNumber: 3,
+      label: "Question" as const,
+      prompt: "What question does your claim raise?",
+      studentCue: "What do you still wonder? What would change your mind?",
+      followUpGuidance:
+        "Celebrate genuine uncertainty. Push toward investigable questions that connect to the claim.",
+    },
+  ] satisfies RoutineStep[],
+};
+
 export function getRoutineStep(stepNumber: number, routineId?: string) {
   const routineSteps =
     routineId === "would-you-rather"
       ? WOULD_YOU_RATHER_ROUTINE.steps
       : routineId === "i-used-to-think"
         ? I_USED_TO_THINK_ROUTINE.steps
-        : SEE_THINK_WONDER_ROUTINE.steps;
+        : routineId === "claim-support-question"
+          ? CLAIM_SUPPORT_QUESTION_ROUTINE.steps
+          : SEE_THINK_WONDER_ROUTINE.steps;
 
   const step = routineSteps.find(
     (item) => item.stepNumber === stepNumber,

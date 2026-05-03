@@ -116,6 +116,7 @@ export async function analyzeStep(input: {
   const step = getRoutineStep(labelToNumber(input.label, input.session.routineId), input.session.routineId);
   const geminiApiKey = getGeminiApiKey();
   const isIUTT = input.session.routineId === "i-used-to-think";
+  const isCSQ = input.session.routineId === "claim-support-question";
 
   if (geminiApiKey) {
     try {
@@ -133,15 +134,31 @@ export async function analyzeStep(input: {
               : "Score how clearly the student articulates what shifted and why (1=vague 'I understand better now', 4=names the specific idea/evidence that changed their thinking). If they haven't named what caused the shift, ask them to identify it, quoting their 'Used to Think' response.",
             "Use an integer depthScore from 1 to 4.",
           ].filter(Boolean).join("\n")
-        : [
-            "Routine: See Think Wonder",
-            `Step: ${step.label}`,
-            `Step prompt: ${step.prompt}`,
-            `Learning target: ${input.session.learningTarget || "Not provided"}`,
-            `Student transcript: ${input.transcript}`,
-            "Score thinking depth from 1 surface to 4 transfer. Generate at most one follow-up question that stays inside this routine step.",
-            "Use an integer depthScore from 1 to 4.",
-          ].join("\n");
+        : isCSQ
+          ? [
+              "Routine: Claim Support Question",
+              `Step: ${step.label}`,
+              `Learning target: ${input.session.learningTarget || "Not provided"}`,
+              input.previousTranscripts?.length
+                ? `Previous steps: ${input.previousTranscripts.join(" | ")}`
+                : null,
+              `Student response: ${input.transcript}`,
+              input.label === "Claim"
+                ? "Score how clear and debatable the claim is (1=just restates a fact, 4=clear arguable position). Ask a follow-up to sharpen the claim if it's vague or just factual."
+                : input.label === "Support"
+                  ? "Score how strong and specific the evidence is (1=opinion only, 4=concrete example with clear link to the claim). Ask a follow-up to make the evidence more specific if needed."
+                  : "Score how genuinely curious and investigable the question is (1=yes/no question, 4=open investigable question that connects to the claim). Push toward a more open question if needed.",
+              "Use an integer depthScore from 1 to 4.",
+            ].filter(Boolean).join("\n")
+          : [
+              "Routine: See Think Wonder",
+              `Step: ${step.label}`,
+              `Step prompt: ${step.prompt}`,
+              `Learning target: ${input.session.learningTarget || "Not provided"}`,
+              `Student transcript: ${input.transcript}`,
+              "Score thinking depth from 1 surface to 4 transfer. Generate at most one follow-up question that stays inside this routine step.",
+              "Use an integer depthScore from 1 to 4.",
+            ].join("\n");
 
       return await generateGeminiStructured({
         apiKey: geminiApiKey,
@@ -582,6 +599,9 @@ function heuristicClassSummary(reflections: Reflection[]) {
 function buildFollowUp(label: RoutineStepLabel, transcript: string) {
   if (label === "See") return "What is one smaller detail you noticed that others might miss?";
   if (label === "Think") return "What detail from what you saw makes you think that?";
+  if (label === "Claim") return "Could someone disagree with your claim? What would they say?";
+  if (label === "Support") return "What is the strongest piece of evidence you have for your claim?";
+  if (label === "Question") return "What would you need to find out to answer that question?";
   if (transcript.length < 40) return "What makes that question important to investigate?";
   return "Where could you look for evidence to explore that question?";
 }
@@ -609,6 +629,9 @@ function labelToNumber(label: RoutineStepLabel, routineId?: string) {
   }
   if (routineId === "would-you-rather") {
     return label === "Choice" ? 1 : 2;
+  }
+  if (routineId === "claim-support-question") {
+    return label === "Claim" ? 1 : label === "Support" ? 2 : 3;
   }
   return label === "See" ? 1 : label === "Think" ? 2 : 3;
 }

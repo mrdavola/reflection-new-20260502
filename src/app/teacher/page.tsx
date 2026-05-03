@@ -7,6 +7,7 @@ import { signInWithPopup, signOut } from "firebase/auth";
 import {
   ArrowRight,
   Brain,
+  FlaskConical,
   ImagePlus,
   MessageCircle,
   Play,
@@ -149,7 +150,7 @@ export default function TeacherPage() {
 
         {isTeacherSession ? (
           <>
-          <section className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-5">
+          <section className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <LaunchCard
               href="/teacher/spin/new"
               icon={<Sparkles size={26} />}
@@ -189,6 +190,14 @@ export default function TeacherPage() {
               kicker="Metacognition routine"
               body="Students name their prior belief, then what changed — and what caused the shift."
               color="bg-[#f780d4] text-black"
+            />
+            <LaunchCard
+              href="/teacher/csq/new"
+              icon={<FlaskConical size={26} />}
+              title="Claim Support Question"
+              kicker="Argumentation routine"
+              body="Students make a claim, back it with evidence, and name a question their claim raises."
+              color="bg-[#00b351] text-white"
             />
           </section>
           <section className="mt-5">

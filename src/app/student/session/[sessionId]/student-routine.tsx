@@ -7,7 +7,7 @@ import { ArrowRight, Keyboard, MessageCircle, Mic, MousePointer2, Send, Square, 
 import { buildAnnotationTranscript, getAnnotationCue } from "@/lib/annotations";
 import type { Session } from "@/lib/models";
 import type { ExitTicketTurnAnalysis } from "@/lib/ai/schemas";
-import { I_USED_TO_THINK_ROUTINE, SEE_THINK_WONDER_ROUTINE, WOULD_YOU_RATHER_ROUTINE } from "@/lib/routines";
+import { CLAIM_SUPPORT_QUESTION_ROUTINE, I_USED_TO_THINK_ROUTINE, SEE_THINK_WONDER_ROUTINE, WOULD_YOU_RATHER_ROUTINE } from "@/lib/routines";
 import type { AnnotationNote, RoutineStepLabel } from "@/lib/types";
 
 type Mode = "voice" | "text";
@@ -82,7 +82,9 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
       ? WOULD_YOU_RATHER_ROUTINE
       : studentSession?.session.routineId === "i-used-to-think"
         ? I_USED_TO_THINK_ROUTINE
-        : SEE_THINK_WONDER_ROUTINE;
+        : studentSession?.session.routineId === "claim-support-question"
+          ? CLAIM_SUPPORT_QUESTION_ROUTINE
+          : SEE_THINK_WONDER_ROUTINE;
   const step = routineDef.steps[stepIndex] ?? routineDef.steps[0];
   const voiceMinimumSeconds =
     studentSession?.session.config.voiceMinimumSeconds ?? 5;

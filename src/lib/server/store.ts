@@ -69,7 +69,9 @@ export async function createSession(input: CreateSessionInput) {
             ? "Quick Spin Reflection"
             : input.routineId === "i-used-to-think"
               ? "I Used to Think… Now I Think"
-              : "See Think Wonder Reflection"),
+              : input.routineId === "claim-support-question"
+                ? "Claim Support Question"
+                : "See Think Wonder Reflection"),
     learningTarget: input.learningTarget?.trim() || "",
     gradeBand: input.gradeBand ?? "",
     exitTicketQuestion: input.exitTicketQuestion?.trim() ?? "",

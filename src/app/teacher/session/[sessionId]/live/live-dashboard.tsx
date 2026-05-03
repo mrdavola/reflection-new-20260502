@@ -342,6 +342,88 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
                 )}
               </div>
             </section>
+          ) : session.routineId === "claim-support-question" ? (
+            <section className="panel p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="display-type text-4xl font-bold">
+                    Claim · Support · Question
+                  </h2>
+                  <p className="mt-1 text-base font-semibold">
+                    Student arguments build live — claim first, then evidence, then a question.
+                  </p>
+                </div>
+                <Lightbulb className="text-[#00b351]" />
+              </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                {[
+                  { label: "Claim", color: "bg-[#fff2b7]", textColor: "" },
+                  { label: "Support", color: "bg-[#00b351]", textColor: "text-white" },
+                  { label: "Question", color: "bg-[#006cff]", textColor: "text-white" },
+                ].map(({ label, color, textColor }) => (
+                  <div key={label} className={`rounded-[24px] border-2 border-black p-4 ${color} ${textColor}`}>
+                    <p className="text-sm font-black uppercase tracking-[0.08em] opacity-80">{label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 grid gap-4">
+                {reflections.length === 0 ? (
+                  <p className="rounded-[24px] border-2 border-black bg-white p-5 font-bold">
+                    Waiting for students to join.
+                  </p>
+                ) : (
+                  reflections.map((reflection) => {
+                    const claim = reflection.steps.find((s) => s.label === "Claim");
+                    const support = reflection.steps.find((s) => s.label === "Support");
+                    const question = reflection.steps.find((s) => s.label === "Question");
+                    const stepsDone = [claim, support, question].filter(Boolean).length;
+                    return (
+                      <article
+                        key={reflection.id}
+                        className="rounded-[24px] border-2 border-black bg-white p-5"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <h3 className="display-type text-3xl font-bold">
+                            {reflection.displayName}
+                          </h3>
+                          <span className="rounded-full border-2 border-black bg-[#04c6c5] px-3 py-1 text-sm font-black">
+                            {reflection.completedAt ? "Done" : `Step ${stepsDone + 1}/3`}
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                          {[
+                            { step: claim, label: "Claim", bg: "bg-[#fff2b7]", border: "border-[#006cff]" },
+                            { step: support, label: "Support", bg: "bg-[#00b351]/10", border: "border-[#00b351]" },
+                            { step: question, label: "Question", bg: "bg-[#006cff]/10", border: "border-[#9b51e0]" },
+                          ].map(({ step, label, bg, border }) => (
+                            <div key={label} className={`rounded-[20px] border-2 border-black p-4 ${bg}`}>
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-xs font-black uppercase tracking-[0.08em]">{label}</p>
+                                {step && <Rating rating={step.depthScore ?? 1} />}
+                              </div>
+                              {step ? (
+                                <>
+                                  <p className="mt-3 text-lg font-black leading-6">
+                                    "{step.directQuote ?? step.transcription}"
+                                  </p>
+                                  {step.followUpQuestion ? (
+                                    <p className={`mt-3 border-l-4 ${border} pl-3 text-sm font-black leading-6`}>
+                                      {step.followUpQuestion}
+                                    </p>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <p className="mt-3 text-sm font-bold text-black/50">Waiting…</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
           ) : session.routineId === "exit-ticket-conversation" ? (
             <section className="panel p-5">
               <div className="flex items-center justify-between gap-4">

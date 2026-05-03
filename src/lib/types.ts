@@ -10,7 +10,10 @@ export type RoutineStepLabel =
   | "Follow-up 2"
   | "Follow-up 3"
   | "Used to Think"
-  | "Now I Think";
+  | "Now I Think"
+  | "Claim"
+  | "Support"
+  | "Question";
 export type Tone = "engaged" | "neutral" | "disengaged" | "concerned";
 export type Mindset = "growth" | "neutral" | "fixed";
 export type AlertSeverity = "amber" | "red";
