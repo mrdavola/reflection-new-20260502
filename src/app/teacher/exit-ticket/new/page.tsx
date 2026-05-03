@@ -110,10 +110,12 @@ export default function NewExitTicketPage() {
         <section className="mt-10 grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
 
-            <h1 className="display-type max-w-3xl text-[4.8rem] font-bold leading-[0.84] md:text-[7.2rem]">
+            <h1 className="display-type max-w-3xl text-[3.4rem] font-bold leading-[0.9] sm:text-[4.2rem] md:text-[5.5rem]">
               One question.
               <br />
-              Teacher-set follow-ups.
+              Teacher-set
+              <br />
+              follow-ups.
               <br />
               Real thinking.
             </h1>

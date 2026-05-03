@@ -74,6 +74,7 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
   const [studentSession, setStudentSession] = useState<StudentSessionPayload | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const speechRecognition = useRef<SpeechRecognitionLike | null>(null);
+  const speechKeepAlive = useRef(false);
   const voiceTranscriptRef = useRef("");
   const chunks = useRef<Blob[]>([]);
   const timer = useRef<number | null>(null);
@@ -100,6 +101,7 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
       });
 
     return () => {
+      speechKeepAlive.current = false;
       if (timer.current) window.clearInterval(timer.current);
       recorder.current?.stream.getTracks().forEach((track) => track.stop());
       speechRecognition.current?.stop();
@@ -113,34 +115,50 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
     const SpeechRecognition = getSpeechRecognition();
 
     if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      speechRecognition.current = recognition;
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-      recognition.onresult = (event) => {
-        const transcript = collectSpeechTranscript(event);
-        voiceTranscriptRef.current = transcript;
-        setVoiceTranscript(transcript);
-      };
-      recognition.onerror = (event) => {
-        if (timer.current) window.clearInterval(timer.current);
-        setRecording(false);
-        if (event.error === "no-speech") {
-          setError("We couldn't hear anything. We've switched to typing — you can tap Voice to try again.");
-          setMode("text");
-        } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-          setError("Microphone access was blocked. Allow it in your browser settings, or type instead.");
-          setMode("text");
-        } else if (event.error === "audio-capture") {
-          setError("No microphone found on this device. Type instead.");
-          setMode("text");
-        } else {
-          setError("Something went wrong with the microphone. We've switched to typing.");
-          setMode("text");
-        }
-      };
-      recognition.start();
+      speechKeepAlive.current = true;
+
+      function startRecognitionSession() {
+        if (!speechKeepAlive.current) return;
+        const recognition = new SpeechRecognition();
+        speechRecognition.current = recognition;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+        recognition.onresult = (event) => {
+          const transcript = collectSpeechTranscript(event);
+          voiceTranscriptRef.current = transcript;
+          setVoiceTranscript(transcript);
+        };
+        // Safari terminates the session after a few seconds even with continuous=true.
+        // Restart automatically so the student doesn't have to tap again.
+        recognition.onend = () => {
+          if (speechKeepAlive.current) {
+            try { startRecognitionSession(); } catch { /* ignore */ }
+          }
+        };
+        recognition.onerror = (event) => {
+          if (event.error === "no-speech") {
+            // Transient silence — let onend restart the session silently
+            return;
+          }
+          speechKeepAlive.current = false;
+          if (timer.current) window.clearInterval(timer.current);
+          setRecording(false);
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            setError("Microphone access was blocked. Allow it in your browser settings, or type instead.");
+            setMode("text");
+          } else if (event.error === "audio-capture") {
+            setError("No microphone found on this device. Type instead.");
+            setMode("text");
+          } else {
+            setError("Something went wrong with the microphone. We've switched to typing.");
+            setMode("text");
+          }
+        };
+        recognition.start();
+      }
+
+      startRecognitionSession();
       setRecording(true);
       setSeconds(0);
       timer.current = window.setInterval(() => setSeconds((value) => value + 1), 1000);
@@ -165,6 +183,7 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
 
   async function stopAndSubmitAudio() {
     if (speechRecognition.current) {
+      speechKeepAlive.current = false;
       speechRecognition.current.stop();
       speechRecognition.current = null;
       if (timer.current) window.clearInterval(timer.current);
