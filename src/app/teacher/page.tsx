@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { getRedirectResult, signInWithRedirect, signOut } from "firebase/auth";
+import { signInWithPopup, signOut } from "firebase/auth";
 import {
   ArrowRight,
   Brain,
@@ -46,9 +46,26 @@ export default function TeacherPage() {
     }
     setAuthenticating(true);
     setAuthError("");
-    // Redirect-based auth works on all browsers — no popup blocked errors
-    await signInWithRedirect(auth, googleProvider);
-    // Page navigates away; the useEffect below handles the result on return
+    try {
+      // Firebase is pre-warmed in useEffect so popup opens on the first tick
+      const credential = await signInWithPopup(auth, googleProvider);
+      const idToken = await credential.user.getIdToken();
+      const sessionResponse = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+      const sessionData = await sessionResponse.json();
+      if (!sessionResponse.ok) {
+        throw new Error(sessionData.error ?? "Could not start teacher session.");
+      }
+      setIsTeacherSession(true);
+      await loadSessions();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not sign in.");
+    } finally {
+      setAuthenticating(false);
+    }
   }
 
   async function signOutTeacher() {
@@ -73,49 +90,28 @@ export default function TeacherPage() {
   }
 
   useEffect(() => {
+    // Pre-warm Firebase so getAuth() is already initialized when the user clicks Sign In.
+    // Without this, the first signInWithPopup call has to wait for SDK init,
+    // which gives browsers enough of a delay to classify the popup as unsolicited and block it.
+    getFirebaseClientServices();
+
     let active = true;
-
-    async function init() {
-      // Handle Google redirect sign-in return
-      const { auth, googleProvider } = getFirebaseClientServices();
-      if (auth && googleProvider) {
-        try {
-          const result = await getRedirectResult(auth);
-          if (result && active) {
-            const idToken = await result.user.getIdToken();
-            const sessionResponse = await fetch("/api/auth/session", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ idToken }),
-            });
-            if (!sessionResponse.ok) {
-              const data = await sessionResponse.json();
-              setAuthError(data.error ?? "Could not start teacher session.");
-            }
-          }
-        } catch (error) {
-          if (active) {
-            setAuthError(error instanceof Error ? error.message : "Could not sign in.");
-          }
+    fetch("/api/sessions", { cache: "no-store" })
+      .then(async (response) => {
+        if (response.status === 401) {
+          setIsTeacherSession(false);
+          setLoading(false);
+          return null;
         }
-      }
-
-      // Load sessions (works whether we just redirected back or already signed in)
-      const response = await fetch("/api/sessions", { cache: "no-store" });
-      if (!active) return;
-      if (response.status === 401) {
-        setIsTeacherSession(false);
+        return response.json();
+      })
+      .then((data) => {
+        if (!data) return;
+        if (!active) return;
+        setIsTeacherSession(true);
+        setSessions(data.sessions ?? []);
         setLoading(false);
-        return;
-      }
-      const data = await response.json();
-      if (!active) return;
-      setIsTeacherSession(true);
-      setSessions(data.sessions ?? []);
-      setLoading(false);
-    }
-
-    init();
+      });
 
     return () => {
       active = false;
@@ -126,12 +122,12 @@ export default function TeacherPage() {
     <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black md:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="grid size-12 place-items-center rounded-[16px] border-2 border-black bg-[#04c6c5] text-black">
               <Sparkles size={20} />
             </div>
             <span className="display-type text-3xl font-bold">ReflectAI</span>
-          </div>
+          </Link>
           <div className="flex flex-wrap items-center gap-3">
             {isTeacherSession ? (
               <AccountMenu onSignOut={signOutTeacher} />
