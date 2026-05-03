@@ -11,7 +11,7 @@ export interface ResponseWithAlerts {
  */
 export function buildVotingPool(
   responses: ResponseWithAlerts[]
-): VotingPool & { amberFlaggedIds: string[] } {
+): VotingPool {
   const redIds: string[] = [];
   const amberIds: string[] = [];
   const eligibleIds: string[] = [];
@@ -33,8 +33,7 @@ export function buildVotingPool(
   return {
     eligibleReflectionIds: eligibleIds,
     excludedByRedAlertIds: redIds,
-    excludedByAmberAlertIds: [],
-    amberFlaggedIds: amberIds,
+    excludedByAmberAlertIds: amberIds,
   };
 }
 
@@ -64,7 +63,7 @@ export function aggregateVotes(
 export function selectFinalists(
   voteCounts: Record<string, number>,
   classSize: number
-): Array<{ reflectionId: string; voteCount: number }> {
+): string[] {
   const targetCount = classSize <= 7 ? 3 : 4;
 
   const sorted = Object.entries(voteCounts)
@@ -85,28 +84,51 @@ export function selectFinalists(
     }
   }
 
-  return finalists;
+  return finalists.map((f) => f.reflectionId);
+}
+
+/**
+ * Seeded pseudo-random number generator using linear congruential generator.
+ */
+function seededRandom(seed: number): number {
+  const a = 1664525;
+  const c = 1013904223;
+  const m = 2 ** 32;
+  return ((a * seed + c) % m) / m;
 }
 
 /**
  * Generate a randomized sample of responses for a round-1 ballot.
  * Ensures deterministic shuffle based on sessionId and voterStudentId.
+ * Excludes the voter's own response from the sample.
  */
 export function generateBallotSample(
   eligibleIds: string[],
   sessionId: string,
   voterStudentId: string,
-  classSize: number
+  classSize: number,
+  voterReflectionId?: string
 ): string[] {
   const sampleSize = classSize <= 7 ? 3 : 4;
 
-  const shuffled = [...eligibleIds].sort(() => {
-    const seed = `${sessionId}-${voterStudentId}`.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    return (seed * Math.random()) % 2 > 1 ? 1 : -1;
+  // Filter out voter's own response if provided
+  const filteredIds = voterReflectionId
+    ? eligibleIds.filter((id) => id !== voterReflectionId)
+    : eligibleIds;
+
+  // Compute seed from sessionId and voterStudentId
+  const seedString = `${sessionId}-${voterStudentId}`;
+  let seed = 0;
+  for (let i = 0; i < seedString.length; i++) {
+    seed = ((seed << 5) - seed) + seedString.charCodeAt(i);
+    seed = seed & seed; // Convert to 32bit integer
+  }
+
+  // Deterministic shuffle using seeded RNG
+  const shuffled = [...filteredIds].sort(() => {
+    seed = ((seed * 1103515245 + 12345) >>> 0) % (2 ** 31);
+    return seededRandom(seed) - 0.5;
   });
 
-  return shuffled.slice(0, Math.min(sampleSize, eligibleIds.length));
+  return shuffled.slice(0, Math.min(sampleSize, filteredIds.length));
 }

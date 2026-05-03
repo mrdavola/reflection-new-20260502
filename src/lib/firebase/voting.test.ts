@@ -26,7 +26,7 @@ describe('Voting helpers', () => {
       const result = buildVotingPool(responses);
       expect(result.eligibleReflectionIds).toContain('r1');
       expect(result.eligibleReflectionIds).toContain('r2');
-      expect(result.amberFlaggedIds).toEqual(['r1']);
+      expect(result.excludedByAmberAlertIds).toEqual(['r1']);
     });
   });
 
@@ -59,7 +59,7 @@ describe('Voting helpers', () => {
       const voteCounts = { r1: 8, r2: 6, r3: 4, r4: 2, r5: 1 };
       const result = selectFinalists(voteCounts, 12);
       expect(result).toHaveLength(4);
-      expect(result[0].reflectionId).toBe('r1');
+      expect(result[0]).toBe('r1');
     });
 
     it('should select top 3 for small class (5-7)', () => {
@@ -72,8 +72,8 @@ describe('Voting helpers', () => {
       const voteCounts = { r1: 5, r2: 5, r3: 3 };
       const result = selectFinalists(voteCounts, 8);
       expect(result.length).toBeGreaterThanOrEqual(3);
-      expect(result.map(r => r.reflectionId)).toContain('r1');
-      expect(result.map(r => r.reflectionId)).toContain('r2');
+      expect(result).toContain('r1');
+      expect(result).toContain('r2');
     });
   });
 });
