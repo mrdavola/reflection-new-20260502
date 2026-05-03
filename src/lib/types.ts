@@ -41,6 +41,9 @@ export type SessionConfig = {
   responseMode: "voice" | "text" | "choice";
   showTranscription: boolean;
   studentResultsVisibility: "full" | "simplified" | "none";
+  peerVotingEnabled?: boolean;
+  headlineStepOverride?: RoutineStepLabel;
+  celebrationAnimationEnabled?: boolean;
 };
 
 export type ReflectionStep = {
@@ -86,4 +89,36 @@ export type ClassThinkingMap = {
   see: ThinkingMapCluster[];
   think: ThinkingMapCluster[];
   wonder: ThinkingMapCluster[];
+};
+
+export type VotingState =
+  | "inactive"
+  | "review_pending"
+  | "round_1"
+  | "finals_pending"
+  | "finals"
+  | "reveal"
+  | "discuss"
+  | "ended";
+
+export type VotingPool = {
+  eligibleReflectionIds: string[];
+  excludedRedIds: string[];
+  excludedAmberIds: string[];
+  finalistReflectionIds?: string[];
+  winnerReflectionId?: string;
+  rankedTop3?: Array<{
+    reflectionId: string;
+    studentName: string;
+    voteCount: number;
+  }>;
+};
+
+export type PeerVote = {
+  id: string;
+  sessionId: string;
+  voterStudentId: string;
+  round: 1 | 2;
+  votedForReflectionId: string;
+  createdAt: Date;
 };
