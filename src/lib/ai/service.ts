@@ -414,32 +414,141 @@ export async function analyzeExitTicketTurn(input: {
 
   if (geminiApiKey) {
     try {
-      return await generateGeminiStructured({
+      const analysis = await generateGeminiStructured({
         apiKey: geminiApiKey,
         model: GEMINI_ANALYSIS_MODEL,
         system:
-          "You analyze one student reflection turn for a K-12 teacher. Always quote the student's exact words, rate depth from 1 surface to 4 transfer, and generate one specific follow-up unless this is the final turn. The follow-up must thoughtfully push the student to reflect on the teacher's topic, connect to the lesson context, and explain reasoning or evidence. It should feel like a warm teacher noticing the student's words, not a generic chatbot.",
-        prompt: [
-          `Exit ticket question: ${input.session.exitTicketQuestion}`,
-          `Lesson context: ${input.session.exitTicketContext || input.session.learningTarget}`,
-          `Current prompt: ${input.prompt}`,
-          `Student response: ${input.response}`,
-          `Previous conversation:\n${previous || "None"}`,
-          `Turn ${input.turnIndex + 1} of ${input.maxTurns}.`,
-          "Use an integer rating from 1 to 4.",
-          input.turnIndex >= input.maxTurns - 1
-            ? "This is the final turn. Set followUpQuestion to null."
-            : "Write the next follow-up question. It must include a direct quote from the student's current response and ask them to deepen, clarify, connect, or provide evidence about the teacher's topic.",
-        ].join("\n\n"),
+          "You analyze one student reflection turn for a K-12 teacher. Always quote the student's exact words, rate depth from 1 surface to 4 transfer, and generate one specific follow-up unless this is the final turn. The follow-up must stay inside the teacher's lesson topic, use the lesson vocabulary, and feel like a warm teacher noticing the student's words.",
+        prompt: buildExitTicketTurnPrompt({
+          session: input.session,
+          prompt: input.prompt,
+          response: input.response,
+          previous: previous || "None",
+          turnIndex: input.turnIndex,
+          maxTurns: input.maxTurns,
+        }),
         schema: ExitTicketTurnGeminiSchema,
         parse: ExitTicketTurnAnalysisSchema.parse,
       });
+      return enforceTopicBoundExitTicketAnalysis(analysis, input);
     } catch (error) {
       console.warn("Gemini exit ticket turn failed, falling back.", error);
     }
   }
 
-  return heuristicExitTicketTurn(input);
+  return enforceTopicBoundExitTicketAnalysis(heuristicExitTicketTurn(input), input);
+}
+
+export function buildExitTicketTurnPrompt(input: {
+  session: Session;
+  prompt: string;
+  response: string;
+  previous: string;
+  turnIndex: number;
+  maxTurns: number;
+}) {
+  const lessonContext =
+    input.session.exitTicketContext ||
+    input.session.learningTarget ||
+    input.session.exitTicketQuestion ||
+    "today's lesson";
+
+  return [
+    `Exit ticket question: ${input.session.exitTicketQuestion}`,
+    `Lesson context: ${lessonContext}`,
+    `Current prompt: ${input.prompt}`,
+    `Student response: ${input.response}`,
+    `Previous conversation:\n${input.previous || "None"}`,
+    `Turn ${input.turnIndex + 1} of ${input.maxTurns}.`,
+    "Use an integer rating from 1 to 4.",
+    "Topic lock: The next follow-up must stay inside the lesson context above. Use vocabulary from the lesson context, current prompt, or student's exact words. Do not introduce new concepts, mechanisms, examples, or analogies that the teacher did not provide.",
+    "If the student says they are unsure, ask a simpler lesson-connected question instead of changing topics.",
+    "For example, if the lesson context is the water cycle and the student mentions precipitation or raindrops, ask about water-cycle ideas like evaporation, condensation, precipitation, collection, clouds, or water vapor. Do not pivot to gravity or energy unless the teacher's context or the student's words already named them.",
+    input.turnIndex >= input.maxTurns - 1
+      ? "This is the final turn. Set followUpQuestion to null."
+      : "Write one short follow-up question, ideally under 28 words. It must include a direct quote from the student's current response and ask them to deepen, clarify, connect, or provide evidence about the teacher's topic.",
+  ].join("\n\n");
+}
+
+export function enforceTopicBoundExitTicketAnalysis(
+  analysis: ExitTicketTurnAnalysis,
+  input: {
+    session: Session;
+    response: string;
+    turnIndex: number;
+    maxTurns: number;
+  },
+): ExitTicketTurnAnalysis {
+  if (!analysis.followUpQuestion || input.turnIndex >= input.maxTurns - 1) {
+    return {
+      ...analysis,
+      followUpQuestion: input.turnIndex >= input.maxTurns - 1 ? null : analysis.followUpQuestion,
+    };
+  }
+
+  const lessonText = [
+    input.session.exitTicketQuestion,
+    input.session.exitTicketContext,
+    input.session.learningTarget,
+    input.response,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const followUp = analysis.followUpQuestion.toLowerCase();
+  const awkwardQuote = /\byou(?:'re| are)\s+["“]/i.test(
+    analysis.followUpQuestion,
+  );
+  const offTopicTerms = [
+    "gravity",
+    "energy",
+    "force",
+    "friction",
+    "magnet",
+    "electricity",
+    "photosynthesis",
+    "atom",
+  ];
+  const introducedOffTopic = offTopicTerms.some(
+    (term) => followUp.includes(term) && !lessonText.includes(term),
+  );
+
+  if (!introducedOffTopic && !awkwardQuote && analysis.followUpQuestion.length <= 240) {
+    return analysis;
+  }
+
+  return {
+    ...analysis,
+    followUpQuestion: buildTopicRecoveryFollowUp({
+      session: input.session,
+      quote: analysis.directQuote || extractQuote(input.response),
+    }),
+  };
+}
+
+function buildTopicRecoveryFollowUp(input: {
+  session: Session;
+  quote: string;
+}) {
+  const context = [
+    input.session.exitTicketContext,
+    input.session.learningTarget,
+    input.session.exitTicketQuestion,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const quote = input.quote.trim() || "I'm not sure";
+
+  if (context.includes("water cycle")) {
+    return `You said "${quote}." Thinking about the water cycle, which step connects most to your idea, and what makes you say that?`;
+  }
+
+  const lessonName =
+    input.session.exitTicketContext ||
+    input.session.learningTarget ||
+    "today's lesson";
+  return `You said "${quote}." Thinking about ${lessonName}, what lesson detail could help explain your idea?`;
 }
 
 const SafetyAlertsSchema = z.object({

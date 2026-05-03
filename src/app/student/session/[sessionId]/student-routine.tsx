@@ -938,22 +938,29 @@ function ExitTicketConversation({
   }
 
   return (
-    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId}>
-      <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_340px]">
-        <div className="panel p-6 md:p-10">
-          <p className="inline-flex rounded-full border-2 border-black bg-[#04c6c5] px-4 py-2 text-sm font-black uppercase tracking-[0.08em]">
-            Reflection turn {turnIndex + 1} of {maxTurns}
-          </p>
-          <h1 className="display-type mt-5 text-[2rem] font-bold leading-[1.1] sm:text-[2.5rem] md:text-[3rem]">
-            {prompt}
-          </h1>
+    <main className="min-h-screen bg-[#fdcb40] px-4 py-4 text-black sm:px-5 sm:py-6" data-session-id={sessionId}>
+      <section className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="panel p-4 md:p-6">
+          <div className="sticky top-3 z-20 rounded-[22px] border-2 border-black bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="inline-flex rounded-full border-2 border-black bg-[#04c6c5] px-4 py-2 text-xs font-black uppercase tracking-[0.08em]">
+                Turn {turnIndex + 1} of {maxTurns}
+              </p>
+              <p className="text-xs font-black uppercase tracking-[0.08em] text-black/50">
+                Current question
+              </p>
+            </div>
+            <h1 className="display-type mt-3 text-[1.55rem] font-bold leading-[1.08] sm:text-[1.9rem] md:text-[2.15rem]">
+              {prompt}
+            </h1>
+          </div>
 
           {lastAnalysis ? (
-            <div className="mt-7 rounded-[24px] border-2 border-black bg-[#fff2b7] p-5">
+            <div className="mt-4 rounded-[22px] border-2 border-black bg-[#fff2b7] p-4">
               <p className="text-sm font-black uppercase tracking-[0.08em]">
                 ReflectAI noticed
               </p>
-              <p className="mt-2 text-xl font-black leading-7">
+              <p className="mt-2 text-lg font-black leading-6">
                 “{lastAnalysis.directQuote}”
               </p>
               <div className="mt-4 flex items-center gap-2">
@@ -972,7 +979,7 @@ function ExitTicketConversation({
             </div>
           ) : null}
 
-          <div className="mt-8 flex gap-2">
+          <div className="mt-5 flex gap-2">
             <button
               onClick={() => setMode("voice")}
               className={`focus-ring inline-flex items-center gap-2 rounded-full border-2 border-black px-5 py-3 font-black ${
@@ -993,13 +1000,13 @@ function ExitTicketConversation({
             </button>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-4">
             {mode === "voice" ? (
-              <div className="rounded-[24px] border-2 border-black bg-[#fff2b7] p-6 text-center">
+              <div className="rounded-[24px] border-2 border-black bg-[#fff2b7] p-5 text-center">
                 <button
                   onClick={listening ? stopVoiceTurn : startVoiceTurn}
                   disabled={submitting}
-                  className={`focus-ring mx-auto grid size-36 place-items-center rounded-full border-2 border-black text-white transition hover:-translate-y-0.5 ${
+                  className={`focus-ring mx-auto grid size-32 place-items-center rounded-full border-2 border-black text-white transition hover:-translate-y-0.5 ${
                     listening ? "bg-[#fd4401]" : "bg-[#006cff]"
                   } disabled:opacity-50`}
                 >
@@ -1027,7 +1034,7 @@ function ExitTicketConversation({
                 <textarea
                   value={text}
                   onChange={(event) => setText(event.target.value)}
-                  className="focus-ring min-h-56 w-full rounded-[24px] border-2 border-black bg-white p-5 text-xl font-semibold leading-8"
+                  className="focus-ring min-h-40 w-full rounded-[24px] border-2 border-black bg-white p-5 text-lg font-semibold leading-7"
                   placeholder="Type your thinking here..."
                 />
                 <button
