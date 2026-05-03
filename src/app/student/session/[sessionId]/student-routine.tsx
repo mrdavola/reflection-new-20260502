@@ -127,7 +127,8 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
         if (timer.current) window.clearInterval(timer.current);
         setRecording(false);
         if (event.error === "no-speech") {
-          setError("We didn't catch anything. Make sure your mic is on and try again.");
+          setError("We couldn't hear anything. We've switched to typing — you can tap Voice to try again.");
+          setMode("text");
         } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
           setError("Microphone access was blocked. Allow it in your browser settings, or type instead.");
           setMode("text");
@@ -135,7 +136,8 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
           setError("No microphone found on this device. Type instead.");
           setMode("text");
         } else {
-          setError("Something went wrong with the microphone. Try again or type instead.");
+          setError("Something went wrong with the microphone. We've switched to typing.");
+          setMode("text");
         }
       };
       recognition.start();
@@ -840,7 +842,8 @@ function ExitTicketConversation({
       if (timer.current) window.clearInterval(timer.current);
       setListening(false);
       if (event.error === "no-speech") {
-        setError("We didn't catch anything. Make sure your mic is on and try again.");
+        setError("We couldn't hear anything. We've switched to typing — you can tap Voice to try again.");
+        setMode("text");
       } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         setError("Microphone access was blocked. Allow it in your browser settings, or type instead.");
         setMode("text");
@@ -848,7 +851,8 @@ function ExitTicketConversation({
         setError("No microphone found on this device. Type instead.");
         setMode("text");
       } else {
-        setError("Something went wrong with the microphone. Try again or type instead.");
+        setError("Something went wrong with the microphone. We've switched to typing.");
+        setMode("text");
       }
     };
     recognition.start();
