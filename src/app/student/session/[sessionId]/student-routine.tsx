@@ -116,10 +116,11 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
 
     if (SpeechRecognition) {
       speechKeepAlive.current = true;
+      const SpeechRecognitionClass = SpeechRecognition;
 
       function startRecognitionSession() {
         if (!speechKeepAlive.current) return;
-        const recognition = new SpeechRecognition();
+        const recognition = new SpeechRecognitionClass();
         speechRecognition.current = recognition;
         recognition.continuous = true;
         recognition.interimResults = true;
