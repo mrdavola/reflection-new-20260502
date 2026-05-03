@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { requireTeacherSession } from '@/lib/server/auth';
-import { getSession, updateSession } from '@/lib/server/store';
+import { getSession, updateSession, getDbOrThrowForProd } from '@/lib/server/store';
 import { getAdminDb } from '@/lib/server/firebase-admin';
-import { ok, badRequest, serverError } from '@/lib/server/http';
+import { ok, badRequest, serverError, notFound, forbidden } from '@/lib/server/http';
 import { classifyTranscriptSafety } from '@/lib/safety';
 import { buildVotingPool, type ResponseWithAlerts } from '@/lib/firebase/voting';
 import { getRoutine } from '@/lib/routines';
@@ -29,11 +29,11 @@ export async function POST(
     if (!body.success) return badRequest('Invalid request payload.');
 
     const session = await getSession(sessionId);
-    if (!session) return ok({ error: 'Session not found.' }, { status: 404 });
+    if (!session) return notFound('Session not found.');
 
     // Check authorization: teacher must own the session
     if (session.teacherId !== body.data.teacherId) {
-      return ok({ error: 'Unauthorized' }, { status: 403 });
+      return forbidden('Unauthorized');
     }
 
     // Check if voting should be skipped (minimum 5 reflections)
@@ -69,20 +69,16 @@ export async function POST(
     }
 
     // Fetch all reflections from Firestore
-    const db = getAdminDb();
-    let reflectionsData: ReflectionWithId[] = [];
-
-    if (db) {
-      const snapshot = await db
-        .collection('sessions')
-        .doc(sessionId)
-        .collection('reflections')
-        .get();
-      reflectionsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Reflection),
-      }));
-    }
+    const db = getDbOrThrowForProd();
+    const snapshot = await db
+      .collection('sessions')
+      .doc(sessionId)
+      .collection('reflections')
+      .get();
+    const reflectionsData = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Reflection),
+    }));
 
     // Extract headline responses and analyze for safety
     const responsesWithAlerts: ResponseWithAlerts[] = [];

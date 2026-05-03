@@ -7,7 +7,7 @@ import type { Session, Reflection } from '@/lib/models';
 vi.mock('@/lib/server/store', () => ({
   getSession: vi.fn(),
   updateSession: vi.fn(),
-  getReflection: vi.fn(),
+  getDbOrThrowForProd: vi.fn(),
 }));
 
 vi.mock('@/lib/server/auth', () => ({
@@ -30,7 +30,7 @@ vi.mock('@/lib/routines', () => ({
   getRoutine: vi.fn(),
 }));
 
-import { getSession, updateSession, getReflection } from '@/lib/server/store';
+import { getSession, updateSession, getDbOrThrowForProd } from '@/lib/server/store';
 import { requireTeacherSession } from '@/lib/server/auth';
 import { getAdminDb } from '@/lib/server/firebase-admin';
 import { classifyTranscriptSafety } from '@/lib/safety';
@@ -209,7 +209,7 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
         })),
       }),
     };
-    vi.mocked(getAdminDb).mockReturnValue(mockDb as any);
+    vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
 
     // Mock classifyTranscriptSafety to return alerts for some responses
     vi.mocked(classifyTranscriptSafety).mockImplementation((text: string) => {
@@ -249,14 +249,72 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
     expect(body.votingPoolId).toBe(sessionId);
     expect(body.totalEligible).toBe(7);
 
-    // Verify updateSession was called with review_pending state
+    // Verify updateSession was called with review_pending state and correct votingPool
     expect(updateSession).toHaveBeenCalledWith(
       sessionId,
       expect.objectContaining({
         votingState: 'review_pending',
-        votingPool: expect.any(Object),
+        votingPool: expect.objectContaining({
+          excludedByAmberAlertIds: [],
+        }),
       })
     );
+  });
+
+  it('should skip voting when voting is explicitly disabled', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+        peerVotingEnabled: false,
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(getRoutine).mockReturnValue({
+      id: 'see-think-wonder',
+      name: 'See Think Wonder',
+      description: 'Test',
+      bestForTags: [],
+      config: mockSession.config,
+      steps: [],
+      peerVotingDefault: true,
+      headlineStep: 'Wonder',
+    });
+
+    const request = new Request('http://localhost/api/session/test-session-1/voting/start', {
+      method: 'POST',
+      body: JSON.stringify({ teacherId }),
+    });
+
+    const response = await POST(request, { params: { sessionId } } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.skipped).toBe(true);
+    expect(body.reason).toMatch(/disabled/i);
   });
 
   it('should handle missing headline step gracefully', async () => {
@@ -319,7 +377,7 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       bestForTags: [],
       config: mockSession.config,
       steps: [],
-      peerVotingDefault: false,
+      peerVotingDefault: true,
     });
 
     // Mock Firestore database
@@ -333,7 +391,7 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
         })),
       }),
     };
-    vi.mocked(getAdminDb).mockReturnValue(mockDb as any);
+    vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
 
     vi.mocked(classifyTranscriptSafety).mockReturnValue(null);
     vi.mocked(buildVotingPool).mockReturnValue({
@@ -353,5 +411,116 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
     expect(response.status).toBe(200);
     expect(body.skipped).toBe(true);
     expect(body.reason).toBeDefined();
+  });
+
+  it('should build voting pool with zero amber flags when no responses are flagged', async () => {
+    const reflectionIds = Array.from({ length: 8 }, (_, i) => `reflection-${i + 1}`);
+
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+        peerVotingEnabled: true,
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockReflections: Reflection[] = reflectionIds.map((id, index) => ({
+      id,
+      sessionId,
+      participantId: `student-${index + 1}`,
+      displayName: `Student ${index + 1}`,
+      steps: [
+        {
+          label: 'Wonder',
+          transcription: `I wonder about thing ${index}`,
+        } as ReflectionStep,
+      ],
+      overallAnalysis: null,
+      studentFeedback: null,
+      contentAlerts: [],
+      teacherNote: null,
+      audioExpiresAt: null,
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    }));
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(getRoutine).mockReturnValue({
+      id: 'see-think-wonder',
+      name: 'See Think Wonder',
+      description: 'Test',
+      bestForTags: [],
+      config: mockSession.config,
+      steps: [],
+      peerVotingDefault: true,
+      headlineStep: 'Wonder',
+    });
+
+    // Mock Firestore database
+    const mockDb = {
+      collection: vi.fn().mockReturnThis(),
+      doc: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({
+        docs: mockReflections.map((r) => ({
+          id: r.id,
+          data: () => r,
+        })),
+      }),
+    };
+    vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
+
+    // Mock classifyTranscriptSafety to return no alerts
+    vi.mocked(classifyTranscriptSafety).mockReturnValue(null);
+
+    // Mock buildVotingPool with all responses eligible
+    vi.mocked(buildVotingPool).mockReturnValue({
+      eligibleReflectionIds: reflectionIds,
+      excludedByRedAlertIds: [],
+      excludedByAmberAlertIds: [],
+    });
+
+    const request = new Request('http://localhost/api/session/test-session-1/voting/start', {
+      method: 'POST',
+      body: JSON.stringify({ teacherId }),
+    });
+
+    const response = await POST(request, { params: { sessionId } } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.amberFlaggedResponses).toHaveLength(0);
+    expect(body.totalEligible).toBe(8);
+    expect(updateSession).toHaveBeenCalledWith(
+      sessionId,
+      expect.objectContaining({
+        votingState: 'review_pending',
+        votingPool: expect.objectContaining({
+          eligibleReflectionIds: reflectionIds,
+          excludedByAmberAlertIds: [],
+        }),
+      })
+    );
   });
 });
