@@ -7,7 +7,7 @@ import { ArrowRight, Keyboard, MessageCircle, Mic, MousePointer2, Send, Square, 
 import { buildAnnotationTranscript, getAnnotationCue } from "@/lib/annotations";
 import type { Session } from "@/lib/models";
 import type { ExitTicketTurnAnalysis } from "@/lib/ai/schemas";
-import { SEE_THINK_WONDER_ROUTINE, WOULD_YOU_RATHER_ROUTINE } from "@/lib/routines";
+import { I_USED_TO_THINK_ROUTINE, SEE_THINK_WONDER_ROUTINE, WOULD_YOU_RATHER_ROUTINE } from "@/lib/routines";
 import type { AnnotationNote, RoutineStepLabel } from "@/lib/types";
 
 type Mode = "voice" | "text";
@@ -77,9 +77,12 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
   const voiceTranscriptRef = useRef("");
   const chunks = useRef<Blob[]>([]);
   const timer = useRef<number | null>(null);
-  const routineDef = studentSession?.session.routineId === "would-you-rather"
-    ? WOULD_YOU_RATHER_ROUTINE
-    : SEE_THINK_WONDER_ROUTINE;
+  const routineDef =
+    studentSession?.session.routineId === "would-you-rather"
+      ? WOULD_YOU_RATHER_ROUTINE
+      : studentSession?.session.routineId === "i-used-to-think"
+        ? I_USED_TO_THINK_ROUTINE
+        : SEE_THINK_WONDER_ROUTINE;
   const step = routineDef.steps[stepIndex] ?? routineDef.steps[0];
   const voiceMinimumSeconds =
     studentSession?.session.config.voiceMinimumSeconds ?? 5;
@@ -335,9 +338,11 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const promptText = studentSession.session.routineId === "would-you-rather" && stepIndex === 1
-    ? `You chose ${transcripts[0]?.split(": ")[1] ?? "that option"}. Explain your reasoning.`
-    : step.prompt;
+  const promptText =
+    studentSession.session.routineId === "would-you-rather" && stepIndex === 1
+      ? `You chose ${transcripts[0]?.split(": ")[1] ?? "that option"}. Explain your reasoning.`
+      : step.prompt;
+  const isIUTT = studentSession.session.routineId === "i-used-to-think";
   const usesAnnotationMode =
     studentSession.session.routineId === "see-think-wonder" &&
     studentSession.session.config.annotationMode &&
@@ -348,8 +353,18 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
     <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId}>
       <section className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_320px]">
         <div className="panel p-6 md:p-10">
-          <p className="inline-flex rounded-full border-2 border-black bg-[#04c6c5] px-4 py-2 text-sm font-black uppercase tracking-[0.08em]">
-            Step {step.stepNumber} of {routineDef.steps.length}
+          <p className={`inline-flex rounded-full border-2 border-black px-4 py-2 text-sm font-black uppercase tracking-[0.08em] ${
+            isIUTT
+              ? stepIndex === 0
+                ? "bg-[#fff2b7]"
+                : "bg-[#00b351] text-white"
+              : "bg-[#04c6c5]"
+          }`}>
+            {isIUTT
+              ? stepIndex === 0
+                ? "Before this lesson"
+                : "After this lesson"
+              : `Step ${step.stepNumber} of ${routineDef.steps.length}`}
           </p>
           <h1 className="display-type mt-5 text-[3rem] font-bold leading-[0.85] sm:text-[4rem] md:text-[4.5rem]">
             {promptText}
@@ -357,6 +372,15 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
           <p className="mt-6 max-w-2xl text-2xl font-semibold leading-8">
             {step.studentCue}
           </p>
+
+          {isIUTT && stepIndex === 1 && transcripts[0] ? (
+            <div className="mt-6 rounded-[24px] border-2 border-black bg-[#fff2b7] p-5">
+              <p className="text-xs font-black uppercase tracking-[0.08em] text-black/50">
+                You used to think
+              </p>
+              <p className="mt-2 text-xl font-bold leading-7">"{transcripts[0]}"</p>
+            </div>
+          ) : null}
 
           {usesAnnotationMode ? (
             <AnnotationWorkspace

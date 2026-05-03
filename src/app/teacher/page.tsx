@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { signInWithPopup, signOut } from "firebase/auth";
 import {
   ArrowRight,
+  Brain,
   ImagePlus,
   MessageCircle,
   Play,
@@ -148,7 +149,7 @@ export default function TeacherPage() {
 
         {isTeacherSession ? (
           <>
-          <section className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <section className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-5">
             <LaunchCard
               href="/teacher/spin/new"
               icon={<Sparkles size={26} />}
@@ -180,6 +181,14 @@ export default function TeacherPage() {
               kicker="AI lesson starter"
               body="Generate a curriculum-aligned Would You Rather scenario to spark debate and reasoning."
               color="bg-[#9b51e0] text-white"
+            />
+            <LaunchCard
+              href="/teacher/iusedtothink/new"
+              icon={<Brain size={26} />}
+              title="I Used to Think"
+              kicker="Metacognition routine"
+              body="Students name their prior belief, then what changed — and what caused the shift."
+              color="bg-[#f780d4] text-black"
             />
           </section>
           <section className="mt-5">

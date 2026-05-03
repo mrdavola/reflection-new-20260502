@@ -7,7 +7,7 @@ const CreateSessionSchema = z.object({
   title: z.string().optional(),
   learningTarget: z.string().optional(),
   gradeBand: z.string().optional(),
-  routineId: z.enum(["see-think-wonder", "exit-ticket-conversation", "quick-spin", "would-you-rather"]).optional(),
+  routineId: z.enum(["see-think-wonder", "exit-ticket-conversation", "quick-spin", "would-you-rather", "i-used-to-think"]).optional(),
   wyrOptions: z
     .object({
       optionA: z.string(),

@@ -39,11 +39,13 @@ export async function POST(
     if (!session) return notFound("Session not found.");
 
     const routineStep = getRoutineStep(stepNumber, session.routineId);
+    const previousTranscripts = reflection.steps.map((s) => s.transcription);
     const [analysis, alerts] = await Promise.all([
       analyzeStep({
         session,
         label: routineStep.label,
         transcript: body.data.transcription,
+        previousTranscripts,
       }),
       moderateTranscript(body.data.transcription),
     ]);

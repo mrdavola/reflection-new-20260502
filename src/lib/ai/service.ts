@@ -111,26 +111,44 @@ export async function analyzeStep(input: {
   session: Session;
   label: RoutineStepLabel;
   transcript: string;
+  previousTranscripts?: string[];
 }) {
-  const step = getRoutineStep(labelToNumber(input.label));
+  const step = getRoutineStep(labelToNumber(input.label, input.session.routineId), input.session.routineId);
   const geminiApiKey = getGeminiApiKey();
+  const isIUTT = input.session.routineId === "i-used-to-think";
 
   if (geminiApiKey) {
     try {
+      const promptLines = isIUTT
+        ? [
+            "Routine: I Used to Think… Now I Think",
+            `Step: ${step.label}`,
+            `What was taught: ${input.session.learningTarget || "Not provided"}`,
+            input.label === "Now I Think" && input.previousTranscripts?.[0]
+              ? `Student's prior belief (Used to Think): ${input.previousTranscripts[0]}`
+              : null,
+            `Student response: ${input.transcript}`,
+            input.label === "Used to Think"
+              ? "Score how specific and honest the prior belief is (1=vague, 4=precise misconception or detailed prior model). Generate one follow-up that asks for more detail about the prior belief if vague."
+              : "Score how clearly the student articulates what shifted and why (1=vague 'I understand better now', 4=names the specific idea/evidence that changed their thinking). If they haven't named what caused the shift, ask them to identify it, quoting their 'Used to Think' response.",
+            "Use an integer depthScore from 1 to 4.",
+          ].filter(Boolean).join("\n")
+        : [
+            "Routine: See Think Wonder",
+            `Step: ${step.label}`,
+            `Step prompt: ${step.prompt}`,
+            `Learning target: ${input.session.learningTarget || "Not provided"}`,
+            `Student transcript: ${input.transcript}`,
+            "Score thinking depth from 1 surface to 4 transfer. Generate at most one follow-up question that stays inside this routine step.",
+            "Use an integer depthScore from 1 to 4.",
+          ].join("\n");
+
       return await generateGeminiStructured({
         apiKey: geminiApiKey,
         model: GEMINI_ANALYSIS_MODEL,
         system:
-          "You analyze grades 3-5 student reflection. Be warm, specific, rubric-aligned, and never shame the student.",
-        prompt: [
-          "Routine: See Think Wonder",
-          `Step: ${step.label}`,
-          `Step prompt: ${step.prompt}`,
-          `Learning target: ${input.session.learningTarget || "Not provided"}`,
-          `Student transcript: ${input.transcript}`,
-          "Score thinking depth from 1 surface to 4 transfer. Generate at most one follow-up question that stays inside this routine step.",
-          "Use an integer depthScore from 1 to 4.",
-        ].join("\n"),
+          "You analyze K-12 student reflection. Be warm, specific, and never shame the student.",
+        prompt: promptLines,
         schema: StepAnalysisGeminiSchema,
         parse: StepAnalysisSchema.parse,
       });
@@ -585,6 +603,12 @@ function detectConnections(reflection: Reflection) {
   ].filter(Boolean) as string[];
 }
 
-function labelToNumber(label: RoutineStepLabel) {
+function labelToNumber(label: RoutineStepLabel, routineId?: string) {
+  if (routineId === "i-used-to-think") {
+    return label === "Used to Think" ? 1 : 2;
+  }
+  if (routineId === "would-you-rather") {
+    return label === "Choice" ? 1 : 2;
+  }
   return label === "See" ? 1 : label === "Think" ? 2 : 3;
 }

@@ -68,10 +68,39 @@ export const WOULD_YOU_RATHER_ROUTINE = {
   ] satisfies RoutineStep[],
 };
 
+export const I_USED_TO_THINK_ROUTINE = {
+  id: "i-used-to-think",
+  name: "I Used to Think… Now I Think",
+  description: "Students reflect on how their thinking changed and what caused the shift.",
+  bestForTags: ["metacognition", "reflection", "mindset"],
+  config: DEFAULT_SESSION_CONFIG,
+  steps: [
+    {
+      stepNumber: 1,
+      label: "Used to Think" as const,
+      prompt: "What did you used to think?",
+      studentCue: "Before today's lesson — what did you believe or assume about this topic?",
+      followUpGuidance:
+        "Probe for specificity. What exactly was the prior belief? How certain were they? Was it a misconception or incomplete understanding?",
+    },
+    {
+      stepNumber: 2,
+      label: "Now I Think" as const,
+      prompt: "What do you now think?",
+      studentCue: "How has your thinking changed? What do you understand now that you didn't before?",
+      followUpGuidance:
+        "Quote the student's 'Used to Think' response and ask: what specific moment, idea, or evidence caused that shift?",
+    },
+  ] satisfies RoutineStep[],
+};
+
 export function getRoutineStep(stepNumber: number, routineId?: string) {
-  const routineSteps = routineId === "would-you-rather" 
-    ? WOULD_YOU_RATHER_ROUTINE.steps 
-    : SEE_THINK_WONDER_ROUTINE.steps;
+  const routineSteps =
+    routineId === "would-you-rather"
+      ? WOULD_YOU_RATHER_ROUTINE.steps
+      : routineId === "i-used-to-think"
+        ? I_USED_TO_THINK_ROUTINE.steps
+        : SEE_THINK_WONDER_ROUTINE.steps;
 
   const step = routineSteps.find(
     (item) => item.stepNumber === stepNumber,

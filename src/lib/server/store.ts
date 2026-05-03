@@ -67,7 +67,9 @@ export async function createSession(input: CreateSessionInput) {
           ? "Would You Rather"
           : input.routineId === "quick-spin"
             ? "Quick Spin Reflection"
-            : "See Think Wonder Reflection"),
+            : input.routineId === "i-used-to-think"
+              ? "I Used to Think… Now I Think"
+              : "See Think Wonder Reflection"),
     learningTarget: input.learningTarget?.trim() || "",
     gradeBand: input.gradeBand ?? "",
     exitTicketQuestion: input.exitTicketQuestion?.trim() ?? "",

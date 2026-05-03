@@ -8,7 +8,9 @@ export type RoutineStepLabel =
   | "Reasoning"
   | "Follow-up 1"
   | "Follow-up 2"
-  | "Follow-up 3";
+  | "Follow-up 3"
+  | "Used to Think"
+  | "Now I Think";
 export type Tone = "engaged" | "neutral" | "disengaged" | "concerned";
 export type Mindset = "growth" | "neutral" | "fixed";
 export type AlertSeverity = "amber" | "red";
