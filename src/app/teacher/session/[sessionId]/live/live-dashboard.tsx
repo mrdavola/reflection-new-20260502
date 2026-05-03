@@ -249,7 +249,100 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
             </section>
           </aside>
 
-          {session.routineId === "exit-ticket-conversation" ? (
+          {session.routineId === "i-used-to-think" ? (
+            <section className="panel p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="display-type text-4xl font-bold">
+                    I Used to Think… Now I Think
+                  </h2>
+                  <p className="mt-1 text-base font-semibold">
+                    Before and after thinking, updated live as students reflect.
+                  </p>
+                </div>
+                <Lightbulb className="text-[#f780d4]" />
+              </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[24px] border-2 border-black bg-[#fff2b7] p-4">
+                  <p className="text-sm font-black uppercase tracking-[0.08em]">Used to Think</p>
+                  <p className="mt-1 text-sm font-semibold text-black/60">Prior beliefs before the lesson</p>
+                </div>
+                <div className="rounded-[24px] border-2 border-black bg-[#00b351] p-4 text-white">
+                  <p className="text-sm font-black uppercase tracking-[0.08em]">Now I Think</p>
+                  <p className="mt-1 text-sm font-semibold text-white/70">How thinking changed</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4">
+                {reflections.length === 0 ? (
+                  <p className="rounded-[24px] border-2 border-black bg-white p-5 font-bold">
+                    Waiting for students to join.
+                  </p>
+                ) : (
+                  reflections.map((reflection) => {
+                    const usedToThink = reflection.steps.find((s) => s.label === "Used to Think");
+                    const nowIThink = reflection.steps.find((s) => s.label === "Now I Think");
+                    return (
+                      <article
+                        key={reflection.id}
+                        className="rounded-[24px] border-2 border-black bg-white p-5"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <h3 className="display-type text-3xl font-bold">
+                            {reflection.displayName}
+                          </h3>
+                          <span className="rounded-full border-2 border-black bg-[#04c6c5] px-3 py-1 text-sm font-black">
+                            {reflection.completedAt ? "Done" : usedToThink ? "Step 2" : "Step 1"}
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-[20px] border-2 border-black bg-[#fff2b7] p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-black uppercase tracking-[0.08em]">Used to Think</p>
+                              {usedToThink && <Rating rating={usedToThink.depthScore ?? 1} />}
+                            </div>
+                            {usedToThink ? (
+                              <>
+                                <p className="mt-3 text-lg font-black leading-6">
+                                  "{usedToThink.directQuote ?? usedToThink.transcription}"
+                                </p>
+                                {usedToThink.followUpQuestion ? (
+                                  <p className="mt-3 border-l-4 border-[#006cff] pl-3 text-sm font-black leading-6">
+                                    {usedToThink.followUpQuestion}
+                                  </p>
+                                ) : null}
+                              </>
+                            ) : (
+                              <p className="mt-3 text-sm font-bold text-black/50">Waiting…</p>
+                            )}
+                          </div>
+                          <div className="rounded-[20px] border-2 border-black bg-[#00b351]/10 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-black uppercase tracking-[0.08em]">Now I Think</p>
+                              {nowIThink && <Rating rating={nowIThink.depthScore ?? 1} />}
+                            </div>
+                            {nowIThink ? (
+                              <>
+                                <p className="mt-3 text-lg font-black leading-6">
+                                  "{nowIThink.directQuote ?? nowIThink.transcription}"
+                                </p>
+                                {nowIThink.followUpQuestion ? (
+                                  <p className="mt-3 border-l-4 border-[#00b351] pl-3 text-sm font-black leading-6">
+                                    {nowIThink.followUpQuestion}
+                                  </p>
+                                ) : null}
+                              </>
+                            ) : (
+                              <p className="mt-3 text-sm font-bold text-black/50">Waiting…</p>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          ) : session.routineId === "exit-ticket-conversation" ? (
             <section className="panel p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
