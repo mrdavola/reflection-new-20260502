@@ -31,7 +31,7 @@ type SpeechRecognitionLike = {
   interimResults: boolean;
   lang: string;
   onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -121,11 +121,20 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
         voiceTranscriptRef.current = transcript;
         setVoiceTranscript(transcript);
       };
-      recognition.onerror = () => {
-        setError("The microphone could not hear you clearly. You can type instead.");
-        setRecording(false);
-        setMode("text");
+      recognition.onerror = (event) => {
         if (timer.current) window.clearInterval(timer.current);
+        setRecording(false);
+        if (event.error === "no-speech") {
+          setError("We didn't catch anything. Make sure your mic is on and try again.");
+        } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setError("Microphone access was blocked. Allow it in your browser settings, or type instead.");
+          setMode("text");
+        } else if (event.error === "audio-capture") {
+          setError("No microphone found on this device. Type instead.");
+          setMode("text");
+        } else {
+          setError("Something went wrong with the microphone. Try again or type instead.");
+        }
       };
       recognition.start();
       setRecording(true);
@@ -825,11 +834,20 @@ function ExitTicketConversation({
       voiceTranscriptRef.current = transcript;
       setVoiceTranscript(transcript);
     };
-    recognition.onerror = () => {
-      setError("The microphone could not hear you clearly. You can type instead.");
-      setListening(false);
-      setMode("text");
+    recognition.onerror = (event) => {
       if (timer.current) window.clearInterval(timer.current);
+      setListening(false);
+      if (event.error === "no-speech") {
+        setError("We didn't catch anything. Make sure your mic is on and try again.");
+      } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setError("Microphone access was blocked. Allow it in your browser settings, or type instead.");
+        setMode("text");
+      } else if (event.error === "audio-capture") {
+        setError("No microphone found on this device. Type instead.");
+        setMode("text");
+      } else {
+        setError("Something went wrong with the microphone. Try again or type instead.");
+      }
     };
     recognition.start();
     setListening(true);
