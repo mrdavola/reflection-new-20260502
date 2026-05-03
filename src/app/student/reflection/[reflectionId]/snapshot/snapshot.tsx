@@ -53,7 +53,7 @@ export default function Snapshot({ reflectionId }: { reflectionId: string }) {
           Your Thinking Snapshot
         </h1>
         <p className="mt-5 text-2xl font-semibold leading-8">
-          Your teacher can now see your ideas as part of the class thinking map.
+          Your teacher can now see your thinking live. Nice work.
         </p>
 
         <div className="panel mt-8 grid gap-5 p-6 text-left md:grid-cols-3">
