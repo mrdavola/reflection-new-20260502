@@ -57,7 +57,7 @@ export const SEE_THINK_WONDER_ROUTINE = {
   headlineStep: "Wonder" as const,
 } satisfies RoutineDefinition;
 
-export const WOULD_YOU_RATHER_ROUTINE = {
+export const WOULD_YOU_RATHER_ROUTINE: RoutineDefinition = {
   id: "would-you-rather",
   name: "Would You Rather",
   description: "A quick-fire lesson starter where students choose between two scenarios and defend their reasoning.",
@@ -80,7 +80,7 @@ export const WOULD_YOU_RATHER_ROUTINE = {
     },
   ] satisfies RoutineStep[],
   peerVotingDefault: false,
-} satisfies RoutineDefinition;
+};
 
 export const I_USED_TO_THINK_ROUTINE = {
   id: "i-used-to-think",
@@ -146,7 +146,7 @@ export const CLAIM_SUPPORT_QUESTION_ROUTINE = {
   headlineStep: "Claim" as const,
 } satisfies RoutineDefinition;
 
-export const EXIT_TICKET_CONVERSATION_ROUTINE = {
+export const EXIT_TICKET_CONVERSATION_ROUTINE: RoutineDefinition = {
   id: "exit-ticket-conversation",
   name: "Exit Ticket",
   description: "A brief reflection to assess student thinking before leaving class.",
@@ -184,9 +184,9 @@ export const EXIT_TICKET_CONVERSATION_ROUTINE = {
     },
   ] satisfies RoutineStep[],
   peerVotingDefault: false,
-} satisfies RoutineDefinition;
+};
 
-export const QUICK_SPIN_ROUTINE = {
+export const QUICK_SPIN_ROUTINE: RoutineDefinition = {
   id: "quick-spin",
   name: "Reflection Spinner",
   description: "Students spin the wheel and respond to a random reflection prompt.",
@@ -224,7 +224,7 @@ export const QUICK_SPIN_ROUTINE = {
     },
   ] satisfies RoutineStep[],
   peerVotingDefault: false,
-} satisfies RoutineDefinition;
+};
 
 export function getRoutineStep(stepNumber: number, routineId?: string) {
   const routineSteps =
