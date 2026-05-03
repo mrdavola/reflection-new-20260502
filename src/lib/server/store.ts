@@ -141,6 +141,22 @@ export async function getSessionByJoinCode(joinCode: string) {
   return [...sessions.values()].find((session) => session.joinCode === normalized) ?? null;
 }
 
+export async function updateSession(sessionId: string, updates: Partial<Session>) {
+  const db = getDbOrThrowForProd();
+  if (db) {
+    const session = await getSession(sessionId);
+    if (!session) throw new Error("Session not found.");
+    const updated: Session = { ...session, ...updates };
+    await db.collection("sessions").doc(sessionId).set(updated);
+    return updated;
+  }
+
+  const session = sessions.get(sessionId);
+  if (!session) throw new Error("Session not found.");
+  Object.assign(session, updates);
+  return session;
+}
+
 export async function joinSession(joinCode: string, displayName: string) {
   const session = await getSessionByJoinCode(joinCode);
 

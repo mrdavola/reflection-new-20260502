@@ -226,6 +226,23 @@ export const QUICK_SPIN_ROUTINE: RoutineDefinition = {
   peerVotingDefault: false,
 };
 
+export function getRoutine(routineId?: string): RoutineDefinition {
+  switch (routineId) {
+    case "would-you-rather":
+      return WOULD_YOU_RATHER_ROUTINE;
+    case "i-used-to-think":
+      return I_USED_TO_THINK_ROUTINE;
+    case "claim-support-question":
+      return CLAIM_SUPPORT_QUESTION_ROUTINE;
+    case "exit-ticket-conversation":
+      return EXIT_TICKET_CONVERSATION_ROUTINE;
+    case "quick-spin":
+      return QUICK_SPIN_ROUTINE;
+    default:
+      return SEE_THINK_WONDER_ROUTINE;
+  }
+}
+
 export function getRoutineStep(stepNumber: number, routineId?: string) {
   const routineSteps =
     routineId === "would-you-rather"

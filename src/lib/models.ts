@@ -3,6 +3,8 @@ import type {
   ReflectionStep,
   SafetyAlert,
   SessionConfig,
+  VotingState,
+  VotingPool,
 } from "./types";
 
 export type SessionStatus = "setup" | "active" | "closed";
@@ -41,6 +43,8 @@ export type Session = {
   summaryStatus: SummaryStatus;
   classSummary: string | null;
   classThinkingMap: ClassThinkingMap;
+  votingState?: VotingState;
+  votingPool?: VotingPool;
   createdAt: string;
 };
 
