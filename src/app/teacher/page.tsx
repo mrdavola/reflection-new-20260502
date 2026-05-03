@@ -169,7 +169,7 @@ export default function TeacherPage() {
 
         {isTeacherSession ? (
           <>
-          <section className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <section className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <LaunchCard
               href="/teacher/spin/new"
               icon={<Sparkles size={26} />}
@@ -322,7 +322,7 @@ function LaunchCard({
       <p className="mt-5 text-sm font-black uppercase tracking-[0.08em]">
         {kicker}
       </p>
-      <h2 className="display-type mt-2 text-3xl font-bold leading-tight">{title}</h2>
+      <h2 className="display-type mt-2 text-4xl font-bold leading-none">{title}</h2>
       <p className="mt-4 text-lg font-bold leading-7">{body}</p>
       <span className="mt-6 inline-flex items-center gap-2 rounded-full border-2 border-black bg-white px-5 py-3 text-sm font-black text-black">
         Launch <ArrowRight size={16} />
