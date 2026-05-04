@@ -26,12 +26,12 @@ export async function GET(
 
     // Determine which round to aggregate
     let round: 1 | 2;
-    if (votingState === 'round_1' || votingState === 'finals_pending') {
+    if (votingState === 'round_1') {
       round = 1;
     } else if (votingState === 'finals') {
       round = 2;
     } else if (votingState === 'reveal' || votingState === 'discuss') {
-      // Return locked final results
+      // Return locked final results from top 3
       const rankedTop3 = session.votingPool?.rankedTop3 ?? [];
       const voteCounts: Record<string, number> = {};
       rankedTop3.forEach((item) => {
@@ -45,12 +45,20 @@ export async function GET(
         .get();
       const participatingStudents = participantsSnapshot.size;
 
+      // Count actual distinct voters from round 2
+      const allVotes = await db
+        .collection('peerVotes')
+        .where('sessionId', '==', sessionId)
+        .where('round', '==', 2)
+        .get();
+      const studentsWhoVoted = allVotes.size;
+
       return ok({
         votingState,
-        round: votingState === 'reveal' ? 2 : 2,
+        round: 2,
         voteCounts,
         participatingStudents,
-        studentsWhoVoted: rankedTop3.reduce((sum, item) => sum + item.voteCount, 0),
+        studentsWhoVoted,
         isComplete: true,
       });
     } else {

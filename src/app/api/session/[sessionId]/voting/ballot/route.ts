@@ -1,7 +1,6 @@
-import { z } from 'zod';
 import { assertParticipantTokenForReflection } from '@/lib/server/auth';
 import { getSession, getDbOrThrowForProd } from '@/lib/server/store';
-import { ok, badRequest, serverError, notFound, forbidden } from '@/lib/server/http';
+import { ok, badRequest, serverError, notFound, unauthorized } from '@/lib/server/http';
 import { generateBallotSample } from '@/lib/firebase/voting';
 import type { Reflection } from '@/lib/models';
 
@@ -14,7 +13,7 @@ export async function GET(
     const token = new URL(request.url).searchParams.get('token') ?? '';
 
     if (!token) {
-      return forbidden('Authentication required.');
+      return unauthorized('Authentication required.');
     }
 
     // Verify student is in session
@@ -25,7 +24,7 @@ export async function GET(
         participantToken: token,
       });
     } catch {
-      return forbidden('Invalid or expired token.');
+      return unauthorized('Invalid or expired token.');
     }
 
     const session = await getSession(sessionId);

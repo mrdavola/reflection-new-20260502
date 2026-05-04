@@ -23,7 +23,7 @@ const ACTION_TRANSITIONS = {
 } as const;
 
 const ACTION_TARGETS = {
-  round_1_to_finals: 'finals_pending',
+  round_1_to_finals: 'finals',
   finals_to_reveal: 'reveal',
   reveal_to_discuss: 'discuss',
   discuss_to_ended: 'ended',
@@ -86,7 +86,7 @@ export async function POST(
       const finalists = selectFinalists(voteCounts, session.joinedCount);
 
       await updateSession(sessionId, {
-        votingState: 'finals_pending',
+        votingState: 'finals',
         votingPool: {
           ...session.votingPool,
           finalistReflectionIds: finalists,
@@ -95,7 +95,7 @@ export async function POST(
 
       return ok({
         advanced: true,
-        action: 'finals_pending',
+        action: 'finals',
         finalists: finalists.length,
       });
     }
@@ -128,9 +128,13 @@ export async function POST(
       const topVoteCount = sorted[0].voteCount;
       const tiedAtTop = sorted.filter((item) => item.voteCount === topVoteCount);
 
-      // Random tie-breaker (deterministic for this session)
-      const seed = sessionId.charCodeAt(0) + sessionId.charCodeAt(1);
-      const winnerIndex = seed % tiedAtTop.length;
+      // Deterministic tie-breaker using session ID as seed
+      let seed = 0;
+      for (let i = 0; i < sessionId.length; i++) {
+        seed = ((seed << 5) - seed) + sessionId.charCodeAt(i);
+        seed = seed | 0; // Convert to 32-bit integer
+      }
+      const winnerIndex = Math.abs(seed % tiedAtTop.length);
       const winner = tiedAtTop[winnerIndex];
 
       // Get top 3 with student names

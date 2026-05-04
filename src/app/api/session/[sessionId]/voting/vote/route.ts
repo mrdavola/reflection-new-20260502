@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { assertParticipantTokenForReflection } from '@/lib/server/auth';
 import { getSession, getDbOrThrowForProd } from '@/lib/server/store';
-import { ok, badRequest, serverError, notFound, forbidden } from '@/lib/server/http';
+import { ok, badRequest, serverError, notFound, unauthorized } from '@/lib/server/http';
+import { generateBallotSample } from '@/lib/firebase/voting';
 import type { PeerVote } from '@/lib/types';
 
 const VoteSchema = z.object({
@@ -17,7 +18,7 @@ export async function POST(
     const token = new URL(request.url).searchParams.get('token') ?? '';
 
     if (!token) {
-      return forbidden('Authentication required.');
+      return unauthorized('Authentication required.');
     }
 
     // Verify student is in session
@@ -28,7 +29,7 @@ export async function POST(
         participantToken: token,
       });
     } catch {
-      return forbidden('Invalid or expired token.');
+      return unauthorized('Invalid or expired token.');
     }
 
     const body = VoteSchema.safeParse(await request.json());
@@ -84,16 +85,26 @@ export async function POST(
       return badRequest('Voting pool not initialized.');
     }
 
-    const isEligible =
-      session.votingPool.eligibleReflectionIds.includes(reflectionId) &&
-      !session.votingPool.excludedByAmberAlertIds?.includes(reflectionId);
-
-    if (round === 1 && !isEligible) {
-      return badRequest('Reflection is not eligible for voting in round 1.');
-    }
-
-    if (round === 2 && !session.votingPool.finalistReflectionIds?.includes(reflectionId)) {
-      return badRequest('Reflection is not a finalist.');
+    // Verify reflectionId is in the student's actual ballot (not just the pool)
+    if (round === 1) {
+      const eligibleIds = session.votingPool.eligibleReflectionIds.filter(
+        (id) => !session.votingPool?.excludedByAmberAlertIds?.includes(id)
+      );
+      const ballotSample = generateBallotSample(
+        eligibleIds,
+        sessionId,
+        participant.id,
+        session.joinedCount,
+        studentReflectionId
+      );
+      if (!ballotSample.includes(reflectionId)) {
+        return badRequest('Reflection is not in your ballot.');
+      }
+    } else if (round === 2) {
+      // Finals: verify against finalists
+      if (!session.votingPool.finalistReflectionIds?.includes(reflectionId)) {
+        return badRequest('Reflection is not in finals.');
+      }
     }
 
     // Record vote - create or update PeerVote
