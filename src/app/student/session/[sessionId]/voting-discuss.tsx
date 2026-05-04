@@ -16,7 +16,7 @@ export default function VotingDiscuss({ response, sessionId }: VotingDiscussProp
   ];
 
   return (
-    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId}>
+    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId} data-testid="voting-discuss">
       <div className="mx-auto max-w-3xl">
         <div className="panel p-6 md:p-10">
           <h1 className="display-type mb-8 text-[2.5rem] font-bold leading-[0.85] sm:text-[3rem] md:text-[3.5rem]">
@@ -34,11 +34,12 @@ export default function VotingDiscuss({ response, sessionId }: VotingDiscussProp
             <p className="mb-6 text-sm font-black uppercase tracking-[0.08em] text-black/60">
               Discussion prompts
             </p>
-            <div className="space-y-3">
+            <div className="space-y-3" data-testid="discuss-prompts">
               {discussionPrompts.map((prompt, idx) => (
                 <div
                   key={idx}
                   className="rounded-[20px] border-2 border-black bg-white p-5"
+                  data-testid="discuss-prompt"
                 >
                   <p className="font-bold text-lg leading-6">{prompt}</p>
                 </div>

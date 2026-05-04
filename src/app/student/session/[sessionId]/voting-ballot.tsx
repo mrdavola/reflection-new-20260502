@@ -57,7 +57,7 @@ export default function VotingBallot({
   }
 
   return (
-    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId}>
+    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId} data-testid="voting-ballot">
       <div className="mx-auto max-w-2xl">
         <div className="panel p-6 md:p-10">
           <div className="mb-6">
@@ -85,6 +85,7 @@ export default function VotingBallot({
                     ? 'border-black bg-[#006cff] text-white'
                     : 'border-black bg-white hover:bg-[#f5f5f5]'
                 } ${submitting || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                data-testid="response"
               >
                 <p className="text-lg font-semibold leading-7">{resp.transcription}</p>
                 {selected === resp.reflectionId && (

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { requireTeacherSession } from '@/lib/server/auth';
 import { getSession, updateSession, getDbOrThrowForProd } from '@/lib/server/store';
-import { getAdminDb } from '@/lib/server/firebase-admin';
 import { ok, badRequest, serverError, notFound, forbidden } from '@/lib/server/http';
 import { classifyTranscriptSafety } from '@/lib/safety';
 import { buildVotingPool, type ResponseWithAlerts } from '@/lib/firebase/voting';

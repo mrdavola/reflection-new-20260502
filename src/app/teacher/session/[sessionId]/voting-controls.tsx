@@ -78,6 +78,7 @@ export default function VotingControls({
         onClick={handleStartVoting}
         disabled={!canStart || loading}
         className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+        data-testid="start-voting-button"
       >
         {loading ? 'Starting...' : 'Start Voting'}
       </button>
@@ -85,7 +86,7 @@ export default function VotingControls({
   }
 
   if (votingState === 'review_pending') {
-    return <div className="text-sm text-amber-700">Reviewing responses for safety...</div>;
+    return <div className="text-sm text-amber-700" data-testid="review-pending">Reviewing responses for safety...</div>;
   }
 
   if (votingState === 'round_1') {
@@ -94,6 +95,7 @@ export default function VotingControls({
         onClick={() => handleAdvance('round_1_to_finals')}
         disabled={loading}
         className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+        data-testid="advance-to-finals-button"
       >
         {loading ? 'Advancing...' : 'Advance to Finals'}
       </button>
@@ -106,6 +108,7 @@ export default function VotingControls({
         onClick={() => handleAdvance('finals_to_reveal')}
         disabled={loading}
         className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+        data-testid="reveal-winner-button"
       >
         {loading ? 'Revealing...' : 'Reveal Winner'}
       </button>
@@ -114,11 +117,12 @@ export default function VotingControls({
 
   if (votingState === 'reveal') {
     return (
-      <div className="flex gap-2">
+      <div className="flex gap-2" data-testid="final-controls">
         <button
           onClick={() => handleAdvance('reveal_to_discuss')}
           disabled={loading}
           className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+          data-testid="start-discuss-button"
         >
           {loading ? 'Loading...' : 'Discuss'}
         </button>
@@ -126,6 +130,7 @@ export default function VotingControls({
           onClick={() => handleAdvance('discuss_to_ended')}
           disabled={loading}
           className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50"
+          data-testid="end-voting-button"
         >
           End
         </button>

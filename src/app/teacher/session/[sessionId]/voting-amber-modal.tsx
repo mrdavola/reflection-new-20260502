@@ -53,7 +53,7 @@ export default function AmberModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" data-testid="amber-modal">
       <div className="bg-white rounded p-6 max-w-2xl max-h-96 overflow-y-auto">
         <h2 className="text-lg font-bold mb-4">
           Review {responses.length} response{responses.length !== 1 ? 's' : ''}
@@ -61,7 +61,7 @@ export default function AmberModal({
 
         <div className="space-y-4 mb-6">
           {responses.map((resp) => (
-            <div key={resp.id} className="border p-4 rounded">
+            <div key={resp.id} className="border p-4 rounded" data-testid="amber-response">
               <p className="text-xs text-gray-500 mb-2">
                 Flag: <span className="font-semibold">{resp.alert.category}</span>
               </p>
@@ -78,6 +78,7 @@ export default function AmberModal({
                       ? 'bg-green-100 text-green-700 font-semibold'
                       : 'bg-gray-100 text-gray-600'
                   }`}
+                  data-testid="amber-include-button"
                 >
                   Include
                 </button>
@@ -90,6 +91,7 @@ export default function AmberModal({
                       ? 'bg-red-100 text-red-700 font-semibold'
                       : 'bg-gray-100 text-gray-600'
                   }`}
+                  data-testid="amber-exclude-button"
                 >
                   Exclude
                 </button>
@@ -102,6 +104,7 @@ export default function AmberModal({
           onClick={handleSubmit}
           disabled={loading}
           className="w-full px-4 py-2 bg-blue-600 text-white rounded font-semibold disabled:opacity-50"
+          data-testid="amber-confirm-button"
         >
           {loading ? 'Saving...' : 'Continue to Voting'}
         </button>

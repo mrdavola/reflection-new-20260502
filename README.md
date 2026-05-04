@@ -1,5 +1,18 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Features
+
+### Peer Voting
+
+Post-reflection peer voting where students anonymously vote on the best peer responses. Two-round system with teacher-controlled pacing and safety moderation. See [docs/VOTING.md](docs/VOTING.md) for details.
+
+- **Teacher control:** Gate unsafe responses, pace each voting phase
+- **Student experience:** Anonymous ballots, ranked results, discussion seeds
+- **Safety:** Integrated red/amber flagging with teacher review gate
+- **Testing:** Unit + integration + E2E test coverage
+
+To enable: Set `peerVotingEnabled: true` in session config or `peerVotingDefault: true` in routine definition.
+
 ## Getting Started
 
 First, run the development server:

@@ -35,11 +35,11 @@ export default function VotingReveal({
   }, [celebration]);
 
   return (
-    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId}>
+    <main className="min-h-screen bg-[#fdcb40] px-5 py-6 text-black" data-session-id={sessionId} data-testid="voting-reveal">
       <div className="mx-auto max-w-3xl">
         <div className="panel p-6 md:p-10">
           {showAnimation && (
-            <div className="mb-8 text-center">
+            <div className="mb-8 text-center" data-testid="celebrate-animation">
               <div className="mb-4 text-6xl animate-bounce">🎉</div>
               <p className="text-sm font-bold text-black/60">Revealing class winner...</p>
             </div>
@@ -49,7 +49,7 @@ export default function VotingReveal({
             Class Winner!
           </h1>
 
-          <div className="mb-8 rounded-[24px] border-4 border-black bg-[#fdcb40] p-8 text-center">
+          <div className="mb-8 rounded-[24px] border-4 border-black bg-[#fdcb40] p-8 text-center" data-testid="winner-card">
             <p className="text-sm font-black uppercase tracking-[0.08em] text-black/60 mb-3">
               The winning response
             </p>
@@ -61,7 +61,7 @@ export default function VotingReveal({
 
           <h2 className="display-type mb-6 text-2xl font-bold">Top 3</h2>
 
-          <div className="space-y-4">
+          <div className="space-y-4" data-testid="ranked-top3">
             {rankedTop3.map((resp, idx) => (
               <div
                 key={resp.reflectionId}
@@ -72,6 +72,7 @@ export default function VotingReveal({
                       ? 'bg-[#c8c8c8]'
                       : 'bg-[#e8c9a0]'
                 }`}
+                data-testid={`rank-${idx + 1}`}
               >
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border-2 border-black bg-white font-black text-xl">

@@ -9,6 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:debug": "playwright test --debug",
+    "e2e:report": "playwright show-report",
     "check": "npm run lint && npm run test && npm run build",
     "retention:audio": "node scripts/delete-expired-audio.mjs"
   },
