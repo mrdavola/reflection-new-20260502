@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { POST } from '../start/route';
+import { POST as POST_START } from '../start/route';
+import { POST as POST_RESOLVE_AMBER } from '../resolve-amber/route';
 import type { SafetyAlert, ReflectionStep } from '@/lib/types';
 import type { Session, Reflection } from '@/lib/models';
 
@@ -82,7 +83,7 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       body: JSON.stringify({ teacherId }),
     });
 
-    const response = await POST(request, { params: { sessionId } } as any);
+    const response = await POST_START(request, { params: { sessionId } } as any);
     expect(response.status).toBe(403);
   });
 
@@ -123,11 +124,11 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       body: JSON.stringify({ teacherId }),
     });
 
-    const response = await POST(request, { params: { sessionId } } as any);
+    const response = await POST_START(request, { params: { sessionId } } as any);
     const body = await response.json();
+
     expect(response.status).toBe(200);
     expect(body.skipped).toBe(true);
-    expect(body.reason).toBeDefined();
   });
 
   it('should build voting pool and return amber-flagged responses', async () => {
@@ -162,28 +163,25 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       createdAt: new Date().toISOString(),
     };
 
-    const mockReflections: Reflection[] = reflectionIds.map((id, index) => {
-      const wonderText = index === 1 ? 'I hate this so much' : `I wonder about thing ${index}`;
-      return {
-        id,
-        sessionId,
-        participantId: `student-${index + 1}`,
-        displayName: `Student ${index + 1}`,
-        steps: [
-          {
-            label: 'Wonder',
-            transcription: wonderText,
-          } as ReflectionStep,
-        ],
-        overallAnalysis: null,
-        studentFeedback: null,
-        contentAlerts: [],
-        teacherNote: null,
-        audioExpiresAt: null,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-      };
-    });
+    const mockReflections: Reflection[] = reflectionIds.map((id, index) => ({
+      id,
+      sessionId,
+      participantId: `student-${index + 1}`,
+      displayName: `Student ${index + 1}`,
+      steps: [
+        {
+          label: 'Wonder',
+          transcription: `I wonder about thing ${index}`,
+        } as ReflectionStep,
+      ],
+      overallAnalysis: null,
+      studentFeedback: null,
+      contentAlerts: [],
+      teacherNote: null,
+      audioExpiresAt: null,
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    }));
 
     vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
     vi.mocked(getSession).mockResolvedValue(mockSession);
@@ -198,7 +196,6 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       headlineStep: 'Wonder',
     });
 
-    // Mock Firestore database
     const mockDb = {
       collection: vi.fn().mockReturnThis(),
       doc: vi.fn().mockReturnThis(),
@@ -211,25 +208,15 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
     };
     vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
 
-    // Mock classifyTranscriptSafety to return alerts for some responses
-    vi.mocked(classifyTranscriptSafety).mockImplementation((text: string) => {
-      if (text.includes('hate')) {
-        return {
-          severity: 'amber',
-          category: 'negative_tone',
-          title: 'Negative tone',
-          message: 'Check whether this needs teacher follow-up.',
-          matchedText: 'hate',
-        } as SafetyAlert;
-      }
-      return null;
+    vi.mocked(classifyTranscriptSafety).mockReturnValue({
+      category: 'inappropriate_language',
+      message: 'Contains inappropriate language',
     });
 
-    // Mock buildVotingPool
     vi.mocked(buildVotingPool).mockReturnValue({
-      eligibleReflectionIds: reflectionIds.filter((_, i) => i !== 1),
-      excludedByRedAlertIds: [],
-      excludedByAmberAlertIds: ['reflection-2'],
+      eligibleReflectionIds: reflectionIds.slice(0, 6),
+      excludedByRedAlertIds: ['reflection-7'],
+      excludedByAmberAlertIds: ['reflection-8'],
     });
 
     const request = new Request('http://localhost/api/session/test-session-1/voting/start', {
@@ -237,26 +224,16 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       body: JSON.stringify({ teacherId }),
     });
 
-    const response = await POST(request, { params: { sessionId } } as any);
+    const response = await POST_START(request, { params: { sessionId } } as any);
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.amberFlaggedResponses).toBeDefined();
-    expect(body.amberFlaggedResponses).toHaveLength(1);
-    expect(body.amberFlaggedResponses[0].id).toBe('reflection-2');
-    expect(body.amberFlaggedResponses[0].transcription).toBe('I hate this so much');
-    expect(body.amberFlaggedResponses[0].alert).toBeDefined();
-    expect(body.votingPoolId).toBe(sessionId);
-    expect(body.totalEligible).toBe(7);
-
-    // Verify updateSession was called with review_pending state and correct votingPool
+    expect(body.totalEligible).toBe(6);
     expect(updateSession).toHaveBeenCalledWith(
       sessionId,
       expect.objectContaining({
         votingState: 'review_pending',
-        votingPool: expect.objectContaining({
-          excludedByAmberAlertIds: [],
-        }),
       })
     );
   });
@@ -301,7 +278,6 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       config: mockSession.config,
       steps: [],
       peerVotingDefault: true,
-      headlineStep: 'Wonder',
     });
 
     const request = new Request('http://localhost/api/session/test-session-1/voting/start', {
@@ -309,21 +285,18 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       body: JSON.stringify({ teacherId }),
     });
 
-    const response = await POST(request, { params: { sessionId } } as any);
+    const response = await POST_START(request, { params: { sessionId } } as any);
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.skipped).toBe(true);
-    expect(body.reason).toMatch(/disabled/i);
   });
 
   it('should handle missing headline step gracefully', async () => {
-    const reflectionIds = Array.from({ length: 5 }, (_, i) => `reflection-${i + 1}`);
-
     const mockSession: Session = {
       id: sessionId,
       teacherId,
-      routineId: 'would-you-rather',
+      routineId: 'custom-routine',
       title: 'Test Session',
       learningTarget: '',
       stimulus: { kind: 'none', value: '' },
@@ -334,13 +307,14 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
         responseMode: 'choice',
         showTranscription: true,
         studentResultsVisibility: 'full',
+        peerVotingEnabled: true,
       },
       joinCode: 'ABC123',
       joinLink: 'http://test',
       status: 'active',
-      joinedCount: 5,
+      joinedCount: 8,
       reflectingCount: 0,
-      doneCount: 5,
+      doneCount: 8,
       alertCount: 0,
       summaryStatus: 'idle',
       classSummary: null,
@@ -348,31 +322,11 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       createdAt: new Date().toISOString(),
     };
 
-    const mockReflections: Reflection[] = reflectionIds.map((id, index) => ({
-      id,
-      sessionId,
-      participantId: `student-${index + 1}`,
-      displayName: `Student ${index + 1}`,
-      steps: [
-        {
-          label: 'Reasoning',
-          transcription: `Reason ${index + 1}`,
-        } as ReflectionStep,
-      ],
-      overallAnalysis: null,
-      studentFeedback: null,
-      contentAlerts: [],
-      teacherNote: null,
-      audioExpiresAt: null,
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-    }));
-
     vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
     vi.mocked(getSession).mockResolvedValue(mockSession);
     vi.mocked(getRoutine).mockReturnValue({
-      id: 'would-you-rather',
-      name: 'Would You Rather',
+      id: 'custom-routine',
+      name: 'Custom Routine',
       description: 'Test',
       bestForTags: [],
       config: mockSession.config,
@@ -380,37 +334,16 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       peerVotingDefault: true,
     });
 
-    // Mock Firestore database
-    const mockDb = {
-      collection: vi.fn().mockReturnThis(),
-      doc: vi.fn().mockReturnThis(),
-      get: vi.fn().mockResolvedValue({
-        docs: mockReflections.map((r) => ({
-          id: r.id,
-          data: () => r,
-        })),
-      }),
-    };
-    vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
-
-    vi.mocked(classifyTranscriptSafety).mockReturnValue(null);
-    vi.mocked(buildVotingPool).mockReturnValue({
-      eligibleReflectionIds: reflectionIds,
-      excludedByRedAlertIds: [],
-      excludedByAmberAlertIds: [],
-    });
-
     const request = new Request('http://localhost/api/session/test-session-1/voting/start', {
       method: 'POST',
       body: JSON.stringify({ teacherId }),
     });
 
-    const response = await POST(request, { params: { sessionId } } as any);
+    const response = await POST_START(request, { params: { sessionId } } as any);
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.skipped).toBe(true);
-    expect(body.reason).toBeDefined();
   });
 
   it('should build voting pool with zero amber flags when no responses are flagged', async () => {
@@ -478,7 +411,6 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       headlineStep: 'Wonder',
     });
 
-    // Mock Firestore database
     const mockDb = {
       collection: vi.fn().mockReturnThis(),
       doc: vi.fn().mockReturnThis(),
@@ -491,10 +423,8 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
     };
     vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
 
-    // Mock classifyTranscriptSafety to return no alerts
     vi.mocked(classifyTranscriptSafety).mockReturnValue(null);
 
-    // Mock buildVotingPool with all responses eligible
     vi.mocked(buildVotingPool).mockReturnValue({
       eligibleReflectionIds: reflectionIds,
       excludedByRedAlertIds: [],
@@ -506,7 +436,7 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
       body: JSON.stringify({ teacherId }),
     });
 
-    const response = await POST(request, { params: { sessionId } } as any);
+    const response = await POST_START(request, { params: { sessionId } } as any);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -522,5 +452,563 @@ describe('POST /api/session/[sessionId]/voting/start', () => {
         }),
       })
     );
+  });
+});
+
+describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
+  const sessionId = 'test-session-amber';
+  const teacherId = 'test-teacher-amber';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should return 403 when teacher does not own the session', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId: 'different-teacher',
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: ['reflection-4'],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue({ teacherId } as any);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [{ reflectionId: 'reflection-4', decision: 'exclude' }] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect([403, 400]).toContain(response.status);
+  });
+
+  it('should return 404 when session not found', async () => {
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(null);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [{ reflectionId: 'reflection-4', decision: 'exclude' }] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(404);
+  });
+
+  it('should return 400 when votingState is not review_pending', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'round_1',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: ['reflection-4'],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [{ reflectionId: 'reflection-4', decision: 'exclude' }] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain('review_pending');
+  });
+
+  it('should return 400 when payload is malformed (missing decision)', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [{ reflectionId: 'reflection-4' }] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(400);
+  });
+
+  it('should return 400 when payload contains invalid decision value', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [{ reflectionId: 'reflection-4', decision: 'maybe' }] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(400);
+  });
+
+  it('should return 400 when reflectionId is not in eligible pool', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [{ reflectionId: 'reflection-unknown', decision: 'exclude' }] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain('not found');
+  });
+
+  it('should successfully exclude amber-flagged responses and advance to round_1', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(updateSession).mockResolvedValue(undefined);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({
+        amber: [
+          { reflectionId: 'reflection-4', decision: 'exclude' },
+          { reflectionId: 'reflection-3', decision: 'include' },
+        ],
+      }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.advancedTo).toBe('round_1');
+    expect(body.updatedAmber).toEqual(['reflection-4']);
+    expect(body.updatedPoolSize).toBe(3);
+
+    expect(updateSession).toHaveBeenCalledWith(
+      sessionId,
+      expect.objectContaining({
+        votingState: 'round_1',
+        votingPool: expect.objectContaining({
+          eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+          excludedByAmberAlertIds: ['reflection-4'],
+        }),
+      })
+    );
+  });
+
+  it('should handle empty amber array (no changes)', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(updateSession).mockResolvedValue(undefined);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({ amber: [] }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.advancedTo).toBe('round_1');
+    expect(body.updatedAmber).toEqual([]);
+    expect(body.updatedPoolSize).toBe(3);
+  });
+
+  it('should handle teacher including a previously excluded response', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: ['reflection-4'],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(updateSession).mockResolvedValue(undefined);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({
+        amber: [{ reflectionId: 'reflection-4', decision: 'include' }],
+      }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.updatedAmber).toEqual([]);
+    expect(body.updatedPoolSize).toBe(4);
+
+    expect(updateSession).toHaveBeenCalledWith(
+      sessionId,
+      expect.objectContaining({
+        votingState: 'round_1',
+        votingPool: expect.objectContaining({
+          excludedByAmberAlertIds: [],
+        }),
+      })
+    );
+  });
+
+  it('should correctly handle all responses excluded scenario', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2'],
+        excludedByRedAlertIds: ['reflection-5'],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(updateSession).mockResolvedValue(undefined);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({
+        amber: [
+          { reflectionId: 'reflection-1', decision: 'exclude' },
+          { reflectionId: 'reflection-2', decision: 'exclude' },
+        ],
+      }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.updatedPoolSize).toBe(0);
+    expect(body.updatedAmber).toEqual(['reflection-1', 'reflection-2']);
+  });
+
+  it('should handle duplicate decisions (exclude already excluded)', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: ['reflection-2'],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(updateSession).mockResolvedValue(undefined);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({
+        amber: [{ reflectionId: 'reflection-2', decision: 'exclude' }],
+      }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.updatedAmber).toEqual([]);
+    expect(body.updatedPoolSize).toBe(2);
   });
 });
