@@ -116,6 +116,8 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
   const step = routineDef.steps[stepIndex] ?? routineDef.steps[0];
   const voiceMinimumSeconds =
     studentSession?.session.config.voiceMinimumSeconds ?? 5;
+  const responseMode =
+    studentSession?.session.config.responseMode ?? "choice";
 
   useEffect(() => {
     fetch(
@@ -138,7 +140,7 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     if (!studentSession?.session.id) return;
-    
+
     const pollVotingState = async () => {
       try {
         const response = await fetch(
@@ -154,11 +156,22 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
         console.error("Error polling voting state:", err);
       }
     };
-    
+
     pollVotingState();
     const interval = setInterval(pollVotingState, 2000);
     return () => clearInterval(interval);
   }, [sessionId, token, studentSession?.session.id]);
+
+  useEffect(() => {
+    if (!studentSession?.session.id) return;
+    const rm = studentSession.session.config.responseMode ?? "choice";
+    if (rm === "voice") {
+      setMode("voice");
+    } else if (rm === "text") {
+      setMode("text");
+    }
+  }, [studentSession?.session.id, responseMode]);
+
   async function startRecording() {
     setError("");
     setVoiceTranscript("");
@@ -544,26 +557,28 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
             <>
               <StimulusBlock stimulus={studentSession.session.stimulus} />
 
-              <div className="mt-8 flex gap-2">
-                <button
-                  onClick={() => setMode("voice")}
-                  className={`focus-ring inline-flex items-center gap-2 rounded-full border-2 border-black px-5 py-3 font-black ${
-                    mode === "voice" ? "bg-[#006cff] text-white" : "bg-white"
-                  }`}
-                >
-                  <Mic size={18} />
-                  Voice
-                </button>
-                <button
-                  onClick={() => setMode("text")}
-                  className={`focus-ring inline-flex items-center gap-2 rounded-full border-2 border-black px-5 py-3 font-black ${
-                    mode === "text" ? "bg-[#006cff] text-white" : "bg-white"
-                  }`}
-                >
-                  <Keyboard size={18} />
-                  Type
-                </button>
-              </div>
+              {responseMode === "choice" && (
+                <div className="mt-8 flex gap-2">
+                  <button
+                    onClick={() => setMode("voice")}
+                    className={`focus-ring inline-flex items-center gap-2 rounded-full border-2 border-black px-5 py-3 font-black ${
+                      mode === "voice" ? "bg-[#006cff] text-white" : "bg-white"
+                    }`}
+                  >
+                    <Mic size={18} />
+                    Voice
+                  </button>
+                  <button
+                    onClick={() => setMode("text")}
+                    className={`focus-ring inline-flex items-center gap-2 rounded-full border-2 border-black px-5 py-3 font-black ${
+                      mode === "text" ? "bg-[#006cff] text-white" : "bg-white"
+                    }`}
+                  >
+                    <Keyboard size={18} />
+                    Type
+                  </button>
+                </div>
+              )}
 
               {mode === "voice" ? (
                 <div className="mt-8 rounded-[24px] border-2 border-black bg-[#fff2b7] p-6 text-center">
