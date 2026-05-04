@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import VotingControls from './voting-controls';
 import AmberModal from './voting-amber-modal';
+import VotingResults from './voting-results';
 import { AccountMenu } from '@/app/teacher/account-menu';
 import type { DashboardPayload } from '@/lib/models';
 import type { VotingState, SafetyAlert } from '@/lib/types';
@@ -25,6 +26,7 @@ export default function TeacherSessionPage({
   const [votingState, setVotingState] = useState<VotingState>('inactive');
   const [amberResponses, setAmberResponses] = useState<AmberResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [authorsRevealed, setAuthorsRevealed] = useState(false);
 
   // Initialize params
   useEffect(() => {
@@ -105,6 +107,46 @@ export default function TeacherSessionPage({
 
   const handleError = (err: string) => {
     setError(err);
+  };
+
+  const handleRevealAuthors = async () => {
+    try {
+      const res = await fetch(`/api/session/${sessionId}/voting/reveal-authors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        setAuthorsRevealed(true);
+      } else {
+        const errorData = await res.json();
+        setError(errorData.message || 'Failed to reveal authors');
+      }
+    } catch (err) {
+      setError('Network error revealing authors');
+    }
+  };
+
+  const handleVotingAdvance = async (action: string) => {
+    try {
+      const res = await fetch(`/api/session/${sessionId}/voting/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newState = data.votingState || (action === 'reveal_to_discuss' ? 'discuss' : 'ended');
+        setVotingState(newState as VotingState);
+        setError(null);
+      } else {
+        const errorData = await res.json();
+        setError(errorData.message || 'Failed to advance voting');
+      }
+    } catch (err) {
+      setError('Network error advancing voting');
+    }
   };
 
   if (!dashboard) {
@@ -202,6 +244,26 @@ export default function TeacherSessionPage({
               onResolve={handleAmberResolved}
               onError={handleError}
             />
+          )}
+
+          {/* Voting results section */}
+          {votingState === 'reveal' && session.votingPool?.rankedTop3 && (
+            <div className="rounded-[24px] border-2 border-black bg-green-50 p-5">
+              <VotingResults
+                sessionId={sessionId}
+                topThree={session.votingPool.rankedTop3.map((r: any) => ({
+                  reflectionId: r.reflectionId,
+                  studentName: r.studentName,
+                  voteCount: r.voteCount,
+                  transcription: r.transcription || '',
+                }))}
+                authorsRevealed={authorsRevealed}
+                celebrationEnabled={session.config?.celebrationAnimationEnabled}
+                onRevealAuthors={handleRevealAuthors}
+                onDiscuss={() => handleVotingAdvance('reveal_to_discuss')}
+                onEnd={() => handleVotingAdvance('discuss_to_ended')}
+              />
+            </div>
           )}
 
           {/* Session info */}
