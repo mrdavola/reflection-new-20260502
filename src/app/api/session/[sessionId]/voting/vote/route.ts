@@ -71,6 +71,9 @@ export async function POST(
       ?.id;
 
     // Check if voting for own response
+    if (!studentReflectionId) {
+      return badRequest('Student reflection not found');
+    }
     if (reflectionId === studentReflectionId) {
       return badRequest('Cannot vote for your own response.');
     }
@@ -123,7 +126,7 @@ export async function POST(
       const existingVote = existingVotes.docs[0];
       await existingVote.ref.update({
         votedForReflectionId: reflectionId,
-        createdAt: now,
+        updatedAt: now,
       });
     } else {
       // Create new vote

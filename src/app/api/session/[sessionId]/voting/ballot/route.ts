@@ -2,6 +2,7 @@ import { assertParticipantTokenForReflection } from '@/lib/server/auth';
 import { getSession, getDbOrThrowForProd } from '@/lib/server/store';
 import { ok, badRequest, serverError, notFound, unauthorized } from '@/lib/server/http';
 import { generateBallotSample } from '@/lib/firebase/voting';
+import { getRoutine } from '@/lib/routines';
 import type { Reflection } from '@/lib/models';
 
 export async function GET(
@@ -29,6 +30,10 @@ export async function GET(
 
     const session = await getSession(sessionId);
     if (!session) return notFound('Session not found.');
+
+    // Derive headline step the same way start/route.ts does
+    const routine = getRoutine(session.routineId);
+    const headlineStep = session.config.headlineStepOverride || routine?.headlineStep || 'Wonder';
 
     const votingState = session.votingState ?? 'inactive';
 
@@ -90,7 +95,7 @@ export async function GET(
         return {
           reflectionId,
           transcription: reflection?.steps
-            ?.find((step) => step.label === 'See' || step.label === 'Wonder')
+            ?.find((step) => step.label === headlineStep)
             ?.transcription ?? '',
         };
       });
@@ -109,7 +114,7 @@ export async function GET(
         return {
           reflectionId,
           transcription: reflection?.steps
-            ?.find((step) => step.label === 'See' || step.label === 'Wonder')
+            ?.find((step) => step.label === headlineStep)
             ?.transcription ?? '',
         };
       });
@@ -136,7 +141,7 @@ export async function GET(
         winner: {
           reflectionId: session.votingPool.winnerReflectionId,
           transcription: winner?.steps
-            ?.find((step) => step.label === 'See' || step.label === 'Wonder')
+            ?.find((step) => step.label === headlineStep)
             ?.transcription ?? '',
           voteCount: session.votingPool.rankedTop3?.[0]?.voteCount ?? 0,
         },
@@ -162,7 +167,7 @@ export async function GET(
         winner: {
           reflectionId: session.votingPool.winnerReflectionId,
           transcription: winner?.steps
-            ?.find((step) => step.label === 'See' || step.label === 'Wonder')
+            ?.find((step) => step.label === headlineStep)
             ?.transcription ?? '',
         },
         discussionPrompts: [

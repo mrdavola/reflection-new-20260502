@@ -121,4 +121,5 @@ export type PeerVote = {
   round: 1 | 2;
   votedForReflectionId: string;
   createdAt: Date;
+  updatedAt?: Date;
 };
