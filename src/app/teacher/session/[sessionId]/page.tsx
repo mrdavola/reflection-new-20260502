@@ -256,15 +256,17 @@ export default function TeacherSessionPage({
           {votingState === 'reveal' && session.votingPool?.rankedTop3 && (
             <div className="rounded-[24px] border-2 border-black bg-green-50 p-5">
               <VotingResults
-                sessionId={sessionId}
-                topThree={session.votingPool.rankedTop3.map((r) => ({
-                  reflectionId: r.reflectionId,
-                  studentName: r.studentName,
-                  voteCount: r.voteCount,
-                  transcription: '',
-                }))}
+                topThree={session.votingPool.rankedTop3.map((r) => {
+                  const reflection = dashboard.reflections.find((ref) => ref.id === r.reflectionId);
+                  const transcription = reflection?.steps[0]?.transcription || '';
+                  return {
+                    reflectionId: r.reflectionId,
+                    studentName: r.studentName,
+                    voteCount: r.voteCount,
+                    transcription,
+                  };
+                })}
                 authorsRevealed={authorsRevealed}
-                celebrationEnabled={session.config?.celebrationAnimationEnabled}
                 onRevealAuthors={handleRevealAuthors}
                 onDiscuss={() => handleVotingAdvance('reveal_to_discuss')}
                 onEnd={() => handleVotingAdvance('discuss_to_ended')}
