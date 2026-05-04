@@ -1013,4 +1013,74 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
     expect(body.updatedAmber).toEqual([]);
     expect(body.updatedPoolSize).toBe(2);
   });
+
+  it('should handle mixed decisions (exclude new, include existing)', async () => {
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId,
+      routineId: 'see-think-wonder',
+      title: 'Test Session',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'review_pending',
+      votingPool: {
+        eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: ['reflection-2'],
+      },
+    };
+
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(updateSession).mockResolvedValue(undefined);
+
+    const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
+      method: 'POST',
+      body: JSON.stringify({
+        amber: [
+          { reflectionId: 'reflection-2', decision: 'include' },
+          { reflectionId: 'reflection-4', decision: 'exclude' },
+        ],
+      }),
+    });
+
+    const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    // reflection-2 was excluded, now included; reflection-4 newly excluded
+    expect(body.updatedAmber).toEqual(['reflection-4']);
+    // eligible=4, amber-excluded=[reflection-4] after decisions, so pool = 4 - 1 = 3
+    expect(body.updatedPoolSize).toBe(3);
+
+    expect(updateSession).toHaveBeenCalledWith(
+      sessionId,
+      expect.objectContaining({
+        votingState: 'round_1',
+        votingPool: expect.objectContaining({
+          eligibleReflectionIds: ['reflection-1', 'reflection-2', 'reflection-3', 'reflection-4'],
+          excludedByAmberAlertIds: ['reflection-4'],
+        }),
+      })
+    );
+  });
 });

@@ -44,10 +44,13 @@ export async function POST(
       return badRequest('Voting pool not initialized.');
     }
 
-    // Validate that all reflectionIds are in the eligible pool
-    const eligibleIds = new Set(session.votingPool.eligibleReflectionIds);
+    // Validate that all reflectionIds are valid (either eligible or amber-excluded)
+    const validIds = new Set([
+      ...session.votingPool.eligibleReflectionIds,
+      ...(session.votingPool.excludedByAmberAlertIds || []),
+    ]);
     for (const decision of body.data.amber) {
-      if (!eligibleIds.has(decision.reflectionId)) {
+      if (!validIds.has(decision.reflectionId)) {
         return badRequest(
           `Reflection ID "${decision.reflectionId}" not found in eligible pool.`
         );
@@ -55,7 +58,7 @@ export async function POST(
     }
 
     // Process decisions
-    let updatedExcludedByAmber = new Set(session.votingPool.excludedByAmberAlertIds || []);
+    const updatedExcludedByAmber = new Set(session.votingPool.excludedByAmberAlertIds || []);
     const newlyExcluded: string[] = [];
 
     for (const decision of body.data.amber) {
@@ -70,10 +73,9 @@ export async function POST(
     }
 
     // Calculate updated pool size
-    // Pool size = eligible reflections - ones excluded by amber alerts
+    // Pool size = eligible reflections - ones currently excluded by amber alerts
     const totalEligible = session.votingPool.eligibleReflectionIds.length;
-    const totalExcludedByAmber = updatedExcludedByAmber.size;
-    const updatedPoolSize = totalEligible - totalExcludedByAmber;
+    const updatedPoolSize = totalEligible - updatedExcludedByAmber.size;
 
     // Update session
     await updateSession(sessionId, {
