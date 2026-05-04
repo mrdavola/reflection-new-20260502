@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as POST_START } from '../start/route';
 import { POST as POST_RESOLVE_AMBER } from '../resolve-amber/route';
+import { GET as GET_BALLOT } from '../ballot/route';
+import { POST as POST_VOTE } from '../vote/route';
+import { POST as POST_ADVANCE } from '../advance/route';
+import { GET as GET_LIVE } from '../live/route';
 import type { SafetyAlert, ReflectionStep } from '@/lib/types';
 import type { Session, Reflection } from '@/lib/models';
 
@@ -26,6 +30,13 @@ vi.mock('@/lib/safety', () => ({
 
 vi.mock('@/lib/firebase/voting', () => ({
   buildVotingPool: vi.fn(),
+  aggregateVotes: vi.fn((votes) => {
+    const counts: Record<string, number> = {};
+    votes.forEach((vote: any) => {
+      counts[vote.reflectionId] = (counts[vote.reflectionId] || 0) + 1;
+    });
+    return counts;
+  }),
 }));
 
 vi.mock('@/lib/routines', () => ({
@@ -1099,7 +1110,6 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
 
 describe('GET /api/session/[sessionId]/voting/ballot', () => {
   const sessionId = 'test-session-ballot';
-  const studentId = 'student-1';
   const participantId = 'participant-1';
   const token = 'valid-token-1';
 
@@ -1107,10 +1117,18 @@ describe('GET /api/session/[sessionId]/voting/ballot', () => {
     vi.clearAllMocks();
   });
 
-  it('should return 401 when no valid token provided', async () => {
-    // Test is in integration; endpoint checks token in query param
-    // This documents expected behavior for test coverage purposes
-    expect(true).toBe(true);
+  it('should return 401 when token is invalid or missing', async () => {
+    vi.mocked(assertParticipantTokenForReflection).mockRejectedValue(
+      new Error('Invalid participant token.')
+    );
+
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/ballot?token=invalid`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_BALLOT(request, { params: Promise.resolve({ sessionId }) } as any);
+    expect(response.status).toBe(401);
   });
 
   it('should return empty ballot for review_pending state', async () => {
@@ -1153,11 +1171,20 @@ describe('GET /api/session/[sessionId]/voting/ballot', () => {
     } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    // Endpoint will return empty ballot for review_pending
-    expect(mockSession.votingState).toBe('review_pending');
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/ballot?token=${token}`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_BALLOT(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.state).toBe('review_pending');
+    expect(body.ballot).toEqual([]);
   });
 
-  it('should return empty ballot for inactive states', async () => {
+  it('should return empty ballot for inactive state', async () => {
     const mockSession: Session = {
       id: sessionId,
       teacherId: 'teacher-1',
@@ -1192,7 +1219,17 @@ describe('GET /api/session/[sessionId]/voting/ballot', () => {
     } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    expect(mockSession.votingState).toBe('inactive');
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/ballot?token=${token}`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_BALLOT(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.state).toBe('inactive');
+    expect(body.ballot).toEqual([]);
   });
 });
 
@@ -1205,10 +1242,21 @@ describe('POST /api/session/[sessionId]/voting/vote', () => {
     vi.clearAllMocks();
   });
 
-  it('should return 401 when no valid token provided', async () => {
-    // Endpoint checks token from query param and returns unauthorized(401)
-    // This documents expected behavior
-    expect(true).toBe(true);
+  it('should return 401 when token is invalid', async () => {
+    vi.mocked(assertParticipantTokenForReflection).mockRejectedValue(
+      new Error('Invalid participant token.')
+    );
+
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/vote?token=invalid`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reflectionId: 'r1' }),
+      }
+    );
+
+    const response = await POST_VOTE(request, { params: Promise.resolve({ sessionId }) } as any);
+    expect(response.status).toBe(401);
   });
 
   it('should return 400 when voting state is not round_1 or finals', async () => {
@@ -1251,14 +1299,89 @@ describe('POST /api/session/[sessionId]/voting/vote', () => {
     } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    // Voting only allowed in round_1 or finals
-    expect(mockSession.votingState).not.toBe('round_1');
-    expect(mockSession.votingState).not.toBe('finals');
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/vote?token=${token}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reflectionId: 'r1' }),
+      }
+    );
+
+    const response = await POST_VOTE(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('round_1 or finals');
   });
 
-  it('should return 400 when reflectionId is own response', async () => {
-    // Endpoint prevents voting for own response
-    expect(true).toBe(true);
+  it('should return 400 when reflectionId is student own response', async () => {
+    const ownReflectionId = 'student-own-reflection';
+    const mockSession: Session = {
+      id: sessionId,
+      teacherId: 'teacher-1',
+      routineId: 'see-think-wonder',
+      title: 'Test',
+      learningTarget: '',
+      stimulus: { kind: 'none', value: '' },
+      config: {
+        aiFollowupsEnabled: true,
+        voiceMinimumSeconds: 5,
+        annotationMode: false,
+        responseMode: 'choice',
+        showTranscription: true,
+        studentResultsVisibility: 'full',
+      },
+      joinCode: 'ABC123',
+      joinLink: 'http://test',
+      status: 'active',
+      joinedCount: 8,
+      reflectingCount: 0,
+      doneCount: 8,
+      alertCount: 0,
+      summaryStatus: 'idle',
+      classSummary: null,
+      classThinkingMap: { see: [], think: [], wonder: [] },
+      createdAt: new Date().toISOString(),
+      votingState: 'round_1',
+      votingPool: {
+        eligibleReflectionIds: [ownReflectionId, 'r2'],
+        excludedByRedAlertIds: [],
+        excludedByAmberAlertIds: [],
+      },
+    };
+
+    const mockDb = {
+      collection: vi.fn().mockReturnThis(),
+      doc: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({
+        docs: [
+          {
+            id: ownReflectionId,
+            data: () => ({ participantId }),
+          },
+        ],
+      }),
+    };
+
+    vi.mocked(assertParticipantTokenForReflection).mockResolvedValue({
+      id: participantId,
+    } as any);
+    vi.mocked(getSession).mockResolvedValue(mockSession);
+    vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
+
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/vote?token=${token}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reflectionId: ownReflectionId }),
+      }
+    );
+
+    const response = await POST_VOTE(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('Cannot vote for your own');
   });
 });
 
@@ -1308,16 +1431,32 @@ describe('POST /api/session/[sessionId]/voting/advance', () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    // Teacher mismatch should return 403
-    expect(mockSession.teacherId).not.toBe(teacherId);
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/advance`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'round_1_to_finals' }),
+      }
+    );
+
+    const response = await POST_ADVANCE(request, { params: Promise.resolve({ sessionId }) } as any);
+    expect(response.status).toBe(403);
   });
 
   it('should return 404 when session not found', async () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(null);
 
-    // Session null should return 404
-    expect(true).toBe(true);
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/advance`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'round_1_to_finals' }),
+      }
+    );
+
+    const response = await POST_ADVANCE(request, { params: Promise.resolve({ sessionId }) } as any);
+    expect(response.status).toBe(404);
   });
 
   it('should return 400 when votingState does not match action', async () => {
@@ -1358,8 +1497,19 @@ describe('POST /api/session/[sessionId]/voting/advance', () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    // round_1_to_finals action requires round_1 state
-    expect(mockSession.votingState).toBe('finals');
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/advance`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'round_1_to_finals' }),
+      }
+    );
+
+    const response = await POST_ADVANCE(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain('round_1');
   });
 });
 
@@ -1404,16 +1554,26 @@ describe('GET /api/session/[sessionId]/voting/live', () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    // Teacher mismatch should return 403
-    expect(mockSession.teacherId).not.toBe(teacherId);
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/live`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_LIVE(request, { params: Promise.resolve({ sessionId }) } as any);
+    expect(response.status).toBe(403);
   });
 
   it('should return 404 when session not found', async () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(null);
 
-    // Session null should return 404
-    expect(true).toBe(true);
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/live`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_LIVE(request, { params: Promise.resolve({ sessionId }) } as any);
+    expect(response.status).toBe(404);
   });
 
   it('should return vote counts structure with all required fields', async () => {
@@ -1454,8 +1614,54 @@ describe('GET /api/session/[sessionId]/voting/live', () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    // Live response should include: votingState, round, voteCounts, participatingStudents, studentsWhoVoted, isComplete
-    expect(mockSession.votingState).toBe('round_1');
+    // Mock database with chained where support
+    const mockDb = {
+      collection: vi.fn((name: string) => {
+        if (name === 'peerVotes') {
+          return {
+            where: vi.fn((field: string, op: string, value: any) => ({
+              where: vi.fn(() => ({
+                get: vi.fn().mockResolvedValue({
+                  docs: [
+                    { data: () => ({ votedForReflectionId: 'r1', round: 1 }) },
+                    { data: () => ({ votedForReflectionId: 'r2', round: 1 }) },
+                  ],
+                  size: 2,
+                }),
+              })),
+            })),
+          };
+        } else if (name === 'sessions') {
+          return {
+            doc: vi.fn(() => ({
+              collection: vi.fn(() => ({
+                get: vi.fn().mockResolvedValue({
+                  size: 8,
+                }),
+              })),
+            })),
+          };
+        }
+      }),
+    };
+
+    vi.mocked(getDbOrThrowForProd).mockReturnValue(mockDb as any);
+
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/live`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_LIVE(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toHaveProperty('votingState');
+    expect(body).toHaveProperty('round');
+    expect(body).toHaveProperty('voteCounts');
+    expect(body).toHaveProperty('participatingStudents');
+    expect(body).toHaveProperty('studentsWhoVoted');
+    expect(body).toHaveProperty('isComplete');
   });
 
   it('should return inactive state gracefully', async () => {
@@ -1491,6 +1697,16 @@ describe('GET /api/session/[sessionId]/voting/live', () => {
     vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
-    expect(mockSession.votingState).toBe('inactive');
+    const request = new Request(
+      `http://localhost/api/session/${sessionId}/voting/live`,
+      { method: 'GET' }
+    );
+
+    const response = await GET_LIVE(request, { params: Promise.resolve({ sessionId }) } as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.votingState).toBe('inactive');
+    expect(body.voteCounts).toEqual({});
   });
 });
