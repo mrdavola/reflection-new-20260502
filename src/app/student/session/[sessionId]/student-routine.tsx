@@ -9,6 +9,9 @@ import type { Session } from "@/lib/models";
 import type { ExitTicketTurnAnalysis } from "@/lib/ai/schemas";
 import { CLAIM_SUPPORT_QUESTION_ROUTINE, I_USED_TO_THINK_ROUTINE, SEE_THINK_WONDER_ROUTINE, WOULD_YOU_RATHER_ROUTINE } from "@/lib/routines";
 import type { AnnotationNote, RoutineStepLabel } from "@/lib/types";
+import VotingBallot from "./voting-ballot";
+import VotingReveal from "./voting-reveal";
+import VotingDiscuss from "./voting-discuss";
 
 type Mode = "voice" | "text";
 type StudentSessionPayload = {
@@ -23,6 +26,7 @@ type StudentSessionPayload = {
     | "exitTicketQuestion"
     | "exitTicketMaxTurns"
     | "wyrOptions"
+    | "votingState"
   >;
 };
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
@@ -72,6 +76,9 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [error, setError] = useState("");
   const [studentSession, setStudentSession] = useState<StudentSessionPayload | null>(null);
+  const [votingState, setVotingState] = useState<string | null>(null);
+  const [ballotData, setBallotData] = useState<any>(null);
+  const [ballotLoading, setBallotLoading] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
   const speechRecognition = useRef<SpeechRecognitionLike | null>(null);
   const speechKeepAlive = useRef(false);
@@ -108,6 +115,30 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
     };
   }, [reflectionId, sessionId, token]);
 
+
+  useEffect(() => {
+    if (!studentSession?.session.id) return;
+    
+    const pollVotingState = async () => {
+      try {
+        const response = await fetch(
+          `/api/session/${sessionId}/voting/ballot?token=${encodeURIComponent(token)}`,
+          { cache: "no-store" }
+        );
+        const data = await response.json();
+        setVotingState(data.state ?? studentSession?.session.votingState ?? null);
+        if (data.ballot || data.winner) {
+          setBallotData(data);
+        }
+      } catch (err) {
+        console.error("Error polling voting state:", err);
+      }
+    };
+    
+    pollVotingState();
+    const interval = setInterval(pollVotingState, 2000);
+    return () => clearInterval(interval);
+  }, [sessionId, token, studentSession?.session.id]);
   async function startRecording() {
     setError("");
     setVoiceTranscript("");
@@ -310,6 +341,70 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
           <p className="mt-2 text-lg font-semibold">Getting your teacher’s question...</p>
         </div>
       </main>
+    );
+  }
+
+  // Handle voting states
+  if (votingState === "round_1" && ballotData?.ballot) {
+    return (
+      <VotingBallot
+        sessionId={sessionId}
+        round={1}
+        responses={ballotData.ballot}
+        onVoteComplete={() => {
+          // Refetch ballot state
+          fetch(
+            `/api/session/${sessionId}/voting/ballot?token=${encodeURIComponent(token)}`,
+            { cache: "no-store" }
+          )
+            .then(r => r.json())
+            .then(data => {
+              setVotingState(data.state);
+              setBallotData(data);
+            });
+        }}
+      />
+    );
+  }
+
+  if (votingState === "finals" && ballotData?.ballot) {
+    return (
+      <VotingBallot
+        sessionId={sessionId}
+        round={2}
+        responses={ballotData.ballot}
+        onVoteComplete={() => {
+          fetch(
+            `/api/session/${sessionId}/voting/ballot?token=${encodeURIComponent(token)}`,
+            { cache: "no-store" }
+          )
+            .then(r => r.json())
+            .then(data => {
+              setVotingState(data.state);
+              setBallotData(data);
+            });
+        }}
+      />
+    );
+  }
+
+  if (votingState === "reveal" && ballotData?.winner) {
+    return (
+      <VotingReveal
+        sessionId={sessionId}
+        winner={ballotData.winner}
+        rankedTop3={ballotData.rankedTop3 ?? []}
+        celebration={studentSession.session.config.celebrationAnimationEnabled}
+      />
+    );
+  }
+
+  if (votingState === "discuss" && ballotData?.winner) {
+    return (
+      <VotingDiscuss
+        sessionId={sessionId}
+        response={ballotData.winner}
+      />
     );
   }
 

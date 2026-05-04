@@ -136,6 +136,17 @@ export async function GET(
         (r) => r.id === session.votingPool?.winnerReflectionId
       );
 
+      const topThreeWithTranscriptions = (session.votingPool?.rankedTop3 ?? []).map((item) => {
+        const reflection = allReflections.find((r) => r.id === item.reflectionId);
+        return {
+          reflectionId: item.reflectionId,
+          voteCount: item.voteCount,
+          transcription: reflection?.steps
+            ?.find((step) => step.label === headlineStep)
+            ?.transcription ?? '',
+        };
+      });
+
       return ok({
         state: 'reveal',
         winner: {
@@ -145,10 +156,7 @@ export async function GET(
             ?.transcription ?? '',
           voteCount: session.votingPool.rankedTop3?.[0]?.voteCount ?? 0,
         },
-        rankedTop3: (session.votingPool.rankedTop3 ?? []).map((item) => ({
-          reflectionId: item.reflectionId,
-          voteCount: item.voteCount,
-        })),
+        rankedTop3: topThreeWithTranscriptions,
       });
     }
 
