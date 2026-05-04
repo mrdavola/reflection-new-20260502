@@ -20,7 +20,7 @@ export default function VotingDiscuss({ response, sessionId }: VotingDiscussProp
       <div className="mx-auto max-w-3xl">
         <div className="panel p-6 md:p-10">
           <h1 className="display-type mb-8 text-[2.5rem] font-bold leading-[0.85] sm:text-[3rem] md:text-[3.5rem]">
-            Let's Discuss
+            Let&apos;s Discuss
           </h1>
 
           <div className="mb-8 rounded-[24px] border-4 border-black bg-[#006cff] p-8 text-white">

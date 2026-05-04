@@ -39,7 +39,7 @@ export default function VotingControls({
         const error = await res.json();
         onError?.(error.message || 'Failed to start voting');
       }
-    } catch (err) {
+    } catch (_err) {
       onError?.('Network error starting voting');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export default function VotingControls({
         const error = await res.json();
         onError?.(error.message || 'Failed to advance voting');
       }
-    } catch (err) {
+    } catch (_err) {
       onError?.('Network error advancing voting');
     } finally {
       setLoading(false);

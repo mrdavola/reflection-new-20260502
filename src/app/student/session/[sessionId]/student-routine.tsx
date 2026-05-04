@@ -29,6 +29,27 @@ type StudentSessionPayload = {
     | "votingState"
   >;
 };
+type BallotData = {
+  round?: 1 | 2;
+  state?: string;
+  ballot?: Array<{
+    reflectionId: string;
+    transcription: string;
+  }>;
+  classSize?: number;
+  finalists?: number;
+  winner?: {
+    reflectionId: string;
+    transcription: string;
+    voteCount: number;
+  };
+  rankedTop3?: Array<{
+    reflectionId: string;
+    voteCount: number;
+    transcription: string;
+  }>;
+  discussionPrompts?: string[];
+};
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type SpeechRecognitionLike = {
   continuous: boolean;
@@ -77,8 +98,7 @@ export default function StudentRoutine({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState("");
   const [studentSession, setStudentSession] = useState<StudentSessionPayload | null>(null);
   const [votingState, setVotingState] = useState<string | null>(null);
-  const [ballotData, setBallotData] = useState<any>(null);
-  const [ballotLoading, setBallotLoading] = useState(false);
+  const [ballotData, setBallotData] = useState<BallotData | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const speechRecognition = useRef<SpeechRecognitionLike | null>(null);
   const speechKeepAlive = useRef(false);

@@ -45,7 +45,7 @@ export default function AmberModal({
         const error = await res.json();
         onError?.(error.message || 'Failed to resolve amber responses');
       }
-    } catch (err) {
+    } catch (_err) {
       onError?.('Network error resolving responses');
     } finally {
       setLoading(false);

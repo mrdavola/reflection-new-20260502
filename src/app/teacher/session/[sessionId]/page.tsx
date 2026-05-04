@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import VotingControls from './voting-controls';
@@ -27,6 +27,7 @@ export default function TeacherSessionPage({
   const [amberResponses, setAmberResponses] = useState<AmberResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [authorsRevealed, setAuthorsRevealed] = useState(false);
+  const initialLoadRef = useRef(false);
 
   // Initialize params
   useEffect(() => {
@@ -46,16 +47,21 @@ export default function TeacherSessionPage({
       const data = await response.json();
       setDashboard(data);
       setVotingState(data.session.votingState || 'inactive');
-    } catch (err) {
-      console.error('Error loading dashboard:', err);
+    } catch (_err) {
+      console.error('Error loading dashboard:', _err);
     }
   }, [sessionId]);
 
   // Poll for updates
   useEffect(() => {
     if (!sessionId) return;
-    loadDashboard();
-    const timer = window.setInterval(loadDashboard, 2000);
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      void loadDashboard();
+    }
+    const timer = window.setInterval(() => {
+      void loadDashboard();
+    }, 2000);
     return () => window.clearInterval(timer);
   }, [sessionId, loadDashboard]);
 
@@ -86,7 +92,7 @@ export default function TeacherSessionPage({
         const errorData = await res.json();
         setError(errorData.message || 'Failed to start voting');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Network error starting voting');
     }
   };
@@ -122,7 +128,7 @@ export default function TeacherSessionPage({
         const errorData = await res.json();
         setError(errorData.message || 'Failed to reveal authors');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Network error revealing authors');
     }
   };
@@ -144,7 +150,7 @@ export default function TeacherSessionPage({
         const errorData = await res.json();
         setError(errorData.message || 'Failed to advance voting');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Network error advancing voting');
     }
   };
@@ -251,11 +257,11 @@ export default function TeacherSessionPage({
             <div className="rounded-[24px] border-2 border-black bg-green-50 p-5">
               <VotingResults
                 sessionId={sessionId}
-                topThree={session.votingPool.rankedTop3.map((r: any) => ({
+                topThree={session.votingPool.rankedTop3.map((r) => ({
                   reflectionId: r.reflectionId,
                   studentName: r.studentName,
                   voteCount: r.voteCount,
-                  transcription: r.transcription || '',
+                  transcription: '',
                 }))}
                 authorsRevealed={authorsRevealed}
                 celebrationEnabled={session.config?.celebrationAnimationEnabled}

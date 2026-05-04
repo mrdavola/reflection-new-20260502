@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as POST_START } from '@/app/api/session/[sessionId]/voting/start/route';
 import { POST as POST_RESOLVE_AMBER } from '@/app/api/session/[sessionId]/voting/resolve-amber/route';
@@ -31,10 +32,10 @@ vi.mock('@/lib/firebase/voting', () => ({
   buildVotingPool: vi.fn(),
   aggregateVotes: vi.fn((votes) => {
     const counts: Record<string, number> = {};
-    votes.forEach((vote: any) => {
+    votes.forEach((vote: Record<string, unknown>) => {
       // Handle both formats: votedForReflectionId (from DB) and reflectionId (from route)
       const reflectionId = vote.reflectionId || vote.votedForReflectionId;
-      counts[reflectionId] = (counts[reflectionId] || 0) + 1;
+      counts[reflectionId as string] = (counts[reflectionId as string] || 0) + 1;
     });
     return counts;
   }),
@@ -77,12 +78,14 @@ vi.mock('@/lib/server/http', () => ({
   unauthorized: vi.fn((msg) => ({ status: 401, json: async () => ({ error: msg }) })),
   forbidden: vi.fn((msg) => ({ status: 403, json: async () => ({ error: msg }) })),
   notFound: vi.fn((msg) => ({ status: 404, json: async () => ({ error: msg }) })),
-  serverError: vi.fn((err) => ({ status: 500, json: async () => ({ error: 'Server error' }) })),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  serverError: vi.fn((_err) => ({ status: 500, json: async () => ({ error: 'Server error' }) })),
 }));
 
 import { getSession, updateSession, getDbOrThrowForProd } from '@/lib/server/store';
 import { requireTeacherSession, assertParticipantTokenForReflection } from '@/lib/server/auth';
 import { classifyTranscriptSafety } from '@/lib/safety';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { buildVotingPool, aggregateVotes, selectFinalists, generateBallotSample } from '@/lib/firebase/voting';
 import { getRoutine } from '@/lib/routines';
 
@@ -114,8 +117,9 @@ describe('Voting Integration – Full Flow', () => {
 
   let mockSession: Session;
   let mockReflections: Reflection[];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let allReflectionIds: string[];
-  let mockPeerVotes: any[] = [];
+  let mockPeerVotes: Array<Record<string, unknown>> = [];
 
   beforeEach(() => {
     vi.clearAllMocks();

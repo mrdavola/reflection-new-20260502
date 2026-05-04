@@ -8,8 +8,11 @@ test.describe('Peer Voting E2E – Teacher + Students', () => {
 
   // Test session and user IDs
   const sessionId = 'e2e-voting-test-' + Date.now();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const teacherEmail = 'teacher@example.com';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const student1Email = 'student1@example.com';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const student2Email = 'student2@example.com';
 
   // Mock auth tokens for testing

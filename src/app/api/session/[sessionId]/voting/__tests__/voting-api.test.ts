@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as POST_START } from '../start/route';
 import { POST as POST_RESOLVE_AMBER } from '../resolve-amber/route';
@@ -5,7 +6,7 @@ import { GET as GET_BALLOT } from '../ballot/route';
 import { POST as POST_VOTE } from '../vote/route';
 import { POST as POST_ADVANCE } from '../advance/route';
 import { GET as GET_LIVE } from '../live/route';
-import type { SafetyAlert, ReflectionStep } from '@/lib/types';
+import type { ReflectionStep } from '@/lib/types';
 import type { Session, Reflection } from '@/lib/models';
 
 // Mock the dependencies
@@ -32,8 +33,8 @@ vi.mock('@/lib/firebase/voting', () => ({
   buildVotingPool: vi.fn(),
   aggregateVotes: vi.fn((votes) => {
     const counts: Record<string, number> = {};
-    votes.forEach((vote: any) => {
-      counts[vote.reflectionId] = (counts[vote.reflectionId] || 0) + 1;
+    votes.forEach((vote: Record<string, unknown>) => {
+      counts[vote.reflectionId as string] = (counts[vote.reflectionId as string] || 0) + 1;
     });
     return counts;
   }),
@@ -55,15 +56,18 @@ vi.mock('@/lib/server/http', () => ({
   unauthorized: vi.fn((msg) => ({ status: 401, json: async () => ({ error: msg }) })),
   forbidden: vi.fn((msg) => ({ status: 403, json: async () => ({ error: msg }) })),
   notFound: vi.fn((msg) => ({ status: 404, json: async () => ({ error: msg }) })),
-  serverError: vi.fn((err) => ({ status: 500, json: async () => ({ error: 'Server error' }) })),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  serverError: vi.fn((_err) => ({ status: 500, json: async () => ({ error: 'Server error' }) })),
 }));
 
 import { getSession, updateSession, getDbOrThrowForProd } from '@/lib/server/store';
 import { requireTeacherSession } from '@/lib/server/auth';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { getAdminDb } from '@/lib/server/firebase-admin';
 import { classifyTranscriptSafety } from '@/lib/safety';
 import { buildVotingPool, generateBallotSample } from '@/lib/firebase/voting';
 import { getRoutine } from '@/lib/routines';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ok, badRequest, unauthorized, notFound, forbidden, serverError } from '@/lib/server/http';
 import { assertParticipantTokenForReflection } from '@/lib/server/auth';
 
@@ -2239,7 +2243,7 @@ describe('GET /api/session/[sessionId]/voting/live', () => {
       collection: vi.fn((name: string) => {
         if (name === 'peerVotes') {
           return {
-            where: vi.fn((field: string, op: string, value: any) => ({
+            where: vi.fn((_field: string, _op: string, _value: unknown) => ({
               where: vi.fn(() => ({
                 get: vi.fn().mockResolvedValue({
                   docs: [
@@ -2375,7 +2379,7 @@ describe('GET /api/session/[sessionId]/voting/live', () => {
       collection: vi.fn((name: string) => {
         if (name === 'peerVotes') {
           return {
-            where: vi.fn((field: string, op: string, value: any) => ({
+            where: vi.fn((_field: string, _op: string, _value: unknown) => ({
               where: vi.fn(() => ({
                 get: vi.fn().mockResolvedValue({
                   docs: [

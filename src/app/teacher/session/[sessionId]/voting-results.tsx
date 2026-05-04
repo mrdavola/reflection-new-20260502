@@ -10,20 +10,16 @@ interface ResultItem {
 }
 
 interface VotingResultsProps {
-  sessionId: string;
   topThree: ResultItem[];
   authorsRevealed?: boolean;
-  celebrationEnabled?: boolean;
   onRevealAuthors: () => void;
   onDiscuss: () => void;
   onEnd: () => void;
 }
 
 export default function VotingResults({
-  sessionId,
   topThree,
   authorsRevealed = false,
-  celebrationEnabled = false,
   onRevealAuthors,
   onDiscuss,
   onEnd,

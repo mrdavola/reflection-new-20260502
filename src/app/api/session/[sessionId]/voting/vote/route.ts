@@ -4,6 +4,7 @@ import { getSession, getDbOrThrowForProd } from '@/lib/server/store';
 import { ok, badRequest, serverError, notFound, unauthorized } from '@/lib/server/http';
 import { generateBallotSample } from '@/lib/firebase/voting';
 import type { PeerVote } from '@/lib/types';
+import type { Reflection } from '@/lib/models';
 
 const VoteSchema = z.object({
   reflectionId: z.string().min(1),
@@ -65,7 +66,7 @@ export async function POST(
     const allReflectionIds = reflectionsSnapshot.docs.map((doc) => doc.id);
     const studentReflectionId = reflectionsSnapshot.docs
       .find((doc) => {
-        const reflection = doc.data() as any;
+        const reflection = doc.data() as Reflection;
         return reflection.participantId === participant.id;
       })
       ?.id;

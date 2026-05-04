@@ -12,10 +12,6 @@ const StartVotingSchema = z.object({
   teacherId: z.string(),
 });
 
-interface ReflectionWithId extends Reflection {
-  id: string;
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ sessionId: string }> }

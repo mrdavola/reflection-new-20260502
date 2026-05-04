@@ -4,7 +4,6 @@ import { getSession, updateSession, getDbOrThrowForProd } from '@/lib/server/sto
 import { ok, badRequest, serverError, notFound, forbidden } from '@/lib/server/http';
 import { aggregateVotes, selectFinalists } from '@/lib/firebase/voting';
 import type { Reflection } from '@/lib/models';
-import type { PeerVote } from '@/lib/types';
 
 const AdvanceSchema = z.object({
   action: z.enum([
@@ -20,13 +19,6 @@ const ACTION_TRANSITIONS = {
   finals_to_reveal: 'finals',
   reveal_to_discuss: 'reveal',
   discuss_to_ended: 'discuss',
-} as const;
-
-const ACTION_TARGETS = {
-  round_1_to_finals: 'finals',
-  finals_to_reveal: 'reveal',
-  reveal_to_discuss: 'discuss',
-  discuss_to_ended: 'ended',
 } as const;
 
 export async function POST(
@@ -50,7 +42,6 @@ export async function POST(
 
     const action = body.data.action;
     const expectedState = ACTION_TRANSITIONS[action];
-    const targetState = ACTION_TARGETS[action];
 
     // Verify current voting state
     if (session.votingState !== expectedState) {

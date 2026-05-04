@@ -30,8 +30,6 @@ export default function VotingBallot({
     setSubmitting(true);
 
     try {
-      const token = new URL(window.location.href).searchParams.get('token') ?? '';
-
       const res = await fetch(`/api/session/${sessionId}/voting/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
