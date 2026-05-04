@@ -38,7 +38,7 @@ pilotStore.__reflectAiPilotStore ??= {
 
 const { sessions, participants, reflections } = pilotStore.__reflectAiPilotStore;
 
-function getDbOrThrowForProd() {
+export function getDbOrThrowForProd() {
   const db = getAdminDb();
   if (!db && process.env.NODE_ENV === "production") {
     throw new Error("Firestore is required in production pilot mode.");

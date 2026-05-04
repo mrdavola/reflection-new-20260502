@@ -14,12 +14,11 @@ const ResolveAmberSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
+    const { sessionId } = await params;
     const auth = await requireTeacherSession(request);
-
-    const sessionId = params.sessionId;
     const bodyData = await request.json();
     const body = ResolveAmberSchema.safeParse(bodyData);
     if (!body.success) return badRequest('Invalid request payload.');

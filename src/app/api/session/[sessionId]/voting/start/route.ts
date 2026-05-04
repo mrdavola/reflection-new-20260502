@@ -19,12 +19,11 @@ interface ReflectionWithId extends Reflection {
 
 export async function POST(
   request: Request,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
+    const { sessionId } = await params;
     await requireTeacherSession(request);
-
-    const sessionId = params.sessionId;
     const body = StartVotingSchema.safeParse(await request.json());
     if (!body.success) return badRequest('Invalid request payload.');
 
@@ -70,15 +69,21 @@ export async function POST(
 
     // Fetch all reflections from Firestore
     const db = getDbOrThrowForProd();
+    if (!db) {
+      return ok({
+        skipped: true,
+        reason: 'Voting not available in demo mode.',
+      });
+    }
     const snapshot = await db
       .collection('sessions')
       .doc(sessionId)
       .collection('reflections')
       .get();
-    const reflectionsData = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Reflection),
-    }));
+    const reflectionsData = snapshot.docs.map((doc) => {
+      const data = doc.data() as Reflection;
+      return { ...data, id: doc.id };
+    });
 
     // Extract headline responses and analyze for safety
     const responsesWithAlerts: ResponseWithAlerts[] = [];
