@@ -48,6 +48,10 @@ export async function POST(request: Request) {
     const body = CreateSessionSchema.safeParse(await request.json());
     if (!body.success) return badRequest("Session payload is invalid.");
 
+    if (body.data.routineId === "would-you-rather" && !body.data.wyrOptions) {
+      return badRequest("Would You Rather requires both Option A and Option B.");
+    }
+
     const session = await createSession(body.data);
     return ok({ session }, { status: 201 });
   } catch (error) {

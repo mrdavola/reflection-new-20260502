@@ -117,10 +117,27 @@ export async function analyzeStep(input: {
   const geminiApiKey = getGeminiApiKey();
   const isIUTT = input.session.routineId === "i-used-to-think";
   const isCSQ = input.session.routineId === "claim-support-question";
+  const isWYR = input.session.routineId === "would-you-rather";
 
   if (geminiApiKey) {
     try {
-      const promptLines = isIUTT
+      const promptLines = isWYR
+        ? [
+            "Routine: Would You Rather",
+            `Step: ${step.label}`,
+            `Learning target: ${input.session.learningTarget || "Not provided"}`,
+            input.label === "Reasoning"
+              ? input.previousTranscripts?.[0]
+                ? `Student's choice: ${input.previousTranscripts[0]}`
+                : null
+              : null,
+            `Student response: ${input.transcript}`,
+            input.label === "Choice"
+              ? "This is a choice selection. Score how clearly they selected an option (1=unclear, 4=clear). Generate a follow-up asking them to explain their reasoning."
+              : "Score how well they justify their choice (1=weak reasoning, 4=clear reasoning with evidence). Generate a follow-up that pushes for deeper reasoning if needed.",
+            "Use an integer depthScore from 1 to 4.",
+          ].filter(Boolean).join("\n")
+        : isIUTT
         ? [
             "Routine: I Used to Think… Now I Think",
             `Step: ${step.label}`,
