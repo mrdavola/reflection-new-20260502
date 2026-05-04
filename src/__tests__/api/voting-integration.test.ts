@@ -32,7 +32,9 @@ vi.mock('@/lib/firebase/voting', () => ({
   aggregateVotes: vi.fn((votes) => {
     const counts: Record<string, number> = {};
     votes.forEach((vote: any) => {
-      counts[vote.votedForReflectionId] = (counts[vote.votedForReflectionId] || 0) + 1;
+      // Handle both formats: votedForReflectionId (from DB) and reflectionId (from route)
+      const reflectionId = vote.reflectionId || vote.votedForReflectionId;
+      counts[reflectionId] = (counts[reflectionId] || 0) + 1;
     });
     return counts;
   }),
@@ -113,9 +115,11 @@ describe('Voting Integration – Full Flow', () => {
   let mockSession: Session;
   let mockReflections: Reflection[];
   let allReflectionIds: string[];
+  let mockPeerVotes: any[] = [];
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPeerVotes = [];
 
     // Initialize mock session with inactive voting state
     mockSession = {
@@ -213,7 +217,90 @@ describe('Voting Integration – Full Flow', () => {
     // Setup mock database
     const createMockDb = () => ({
       collection: vi.fn((name: string) => {
-        if (name === 'peerVotes' || name === 'reflections') {
+        if (name === 'peerVotes') {
+          return {
+            doc: vi.fn((docId: string) => ({
+              set: vi.fn().mockImplementation((data: any) => {
+                mockPeerVotes.push({ id: docId, ...data });
+                return Promise.resolve();
+              }),
+              update: vi.fn().mockImplementation((data: any) => {
+                const index = mockPeerVotes.findIndex((v) => v.id === docId);
+                if (index >= 0) {
+                  mockPeerVotes[index] = { ...mockPeerVotes[index], ...data };
+                }
+                return Promise.resolve();
+              }),
+            })),
+            where: vi.fn(function (field: string, operator: string, value: any) {
+              // Return a chainable object for where queries
+              return {
+                where: vi.fn(function (field2: string, operator2: string, value2: any) {
+                  return {
+                    where: vi.fn(function (field3: string, operator3: string, value3: any) {
+                      return {
+                        get: vi.fn().mockResolvedValue({
+                          docs: mockPeerVotes
+                            .filter((v) => {
+                              const match1 = v[field] === value;
+                              const match2 = v[field2] === value2;
+                              const match3 = v[field3] === value3;
+                              return match1 && match2 && match3;
+                            })
+                            .map((v) => ({
+                              id: v.id,
+                              data: () => v,
+                              ref: { update: vi.fn() },
+                            })),
+                          size: mockPeerVotes.filter((v) => {
+                            const match1 = v[field] === value;
+                            const match2 = v[field2] === value2;
+                            const match3 = v[field3] === value3;
+                            return match1 && match2 && match3;
+                          }).length,
+                        }),
+                      };
+                    }),
+                    get: vi.fn().mockResolvedValue({
+                      docs: mockPeerVotes
+                        .filter((v) => {
+                          const match1 = v[field] === value;
+                          const match2 = v[field2] === value2;
+                          return match1 && match2;
+                        })
+                        .map((v) => ({
+                          id: v.id,
+                          data: () => v,
+                          ref: { update: vi.fn() },
+                        })),
+                      size: mockPeerVotes.filter((v) => {
+                        const match1 = v[field] === value;
+                        const match2 = v[field2] === value2;
+                        return match1 && match2;
+                      }).length,
+                    }),
+                  };
+                }),
+                get: vi.fn().mockResolvedValue({
+                  docs: mockPeerVotes
+                    .filter((v) => v[field] === value)
+                    .map((v) => ({
+                      id: v.id,
+                      data: () => v,
+                      ref: { update: vi.fn() },
+                    })),
+                  size: mockPeerVotes.filter((v) => v[field] === value).length,
+                }),
+              };
+            }),
+            get: vi.fn().mockResolvedValue({
+              docs: mockPeerVotes.map((v) => ({
+                id: v.id,
+                data: () => v,
+              })),
+            }),
+          };
+        } else if (name === 'reflections') {
           return {
             doc: vi.fn().mockReturnValue({
               set: vi.fn().mockResolvedValue(undefined),
@@ -330,7 +417,7 @@ describe('Voting Integration – Full Flow', () => {
     expect(mockSession.votingPool?.excludedByAmberAlertIds).toContain(amberIds[2]);
 
     // ============================================
-    // STEP 4: Round 1 voting (get ballots)
+    // STEP 4: Get ballots to verify round 1 ballot structure
     // ============================================
     for (const studentId of studentIds) {
       const studentToken = tokens[studentId as keyof typeof tokens];
@@ -351,19 +438,76 @@ describe('Voting Integration – Full Flow', () => {
     }
 
     // ============================================
-    // STEP 5: Transition to finals (normally after round 1 votes)
+    // STEP 5: Round 1 voting - students vote
     // ============================================
-    // Mock selectFinalists to return specific finalists
-    vi.mocked(selectFinalists).mockReturnValue([reflectionIds.clean1, reflectionIds.clean2, reflectionIds.clean3]);
-
-    mockSession.votingState = 'finals';
-    mockSession.votingPool = {
-      ...mockSession.votingPool!,
-      finalistReflectionIds: [reflectionIds.clean1, reflectionIds.clean2, reflectionIds.clean3],
+    // Actual ballots (from generateBallotSample):
+    // student1: [amber1, amber2, clean1]
+    // student2: [amber1, amber2, clean1]
+    // student3: [amber2, clean1, clean2]
+    // student4: [amber1, clean1, clean2]
+    // student5: [amber1, amber2, clean1]
+    // Vote pattern: all students vote for clean1 (round 1)
+    const round1Votes = {
+      student1: reflectionIds.clean1,
+      student2: reflectionIds.clean1,
+      student3: reflectionIds.clean1,
+      student4: reflectionIds.clean1,
+      student5: reflectionIds.clean1,
     };
 
+    for (const [studentId, reflectionId] of Object.entries(round1Votes)) {
+      const studentToken = tokens[studentId as keyof typeof tokens];
+      const voteRequest = new Request(
+        `http://localhost/api/session/${sessionId}/voting/vote?token=${studentToken}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reflectionId }),
+        }
+      );
+
+      const voteResponse = await POST_VOTE(voteRequest, { params: Promise.resolve({ sessionId }) } as any);
+      expect(voteResponse.status).toBe(200);
+
+      const voteBody = await voteResponse.json();
+      expect(voteBody.success).toBe(true);
+      expect(voteBody.round).toBe(1);
+      expect(voteBody.voteCount).toBeGreaterThan(0);
+    }
+
     // ============================================
-    // STEP 6: Finals voting (get finalists ballot)
+    // STEP 6: Advance from round 1 to finals
+    // ============================================
+    vi.mocked(selectFinalists).mockReturnValue([reflectionIds.clean1, reflectionIds.clean2, reflectionIds.amber1]);
+
+    const advanceToFinalsRequest = new Request(
+      `http://localhost/api/session/${sessionId}/voting/advance`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'round_1_to_finals' }),
+      }
+    );
+
+    // Mock teacher auth for this request
+    vi.mocked(requireTeacherSession).mockResolvedValueOnce({ uid: teacherId } as any);
+
+    const advanceToFinalsResponse = await POST_ADVANCE(advanceToFinalsRequest, {
+      params: Promise.resolve({ sessionId }),
+    } as any);
+    expect(advanceToFinalsResponse.status).toBe(200);
+
+    const advanceToFinalsBody = await advanceToFinalsResponse.json();
+    expect(advanceToFinalsBody.advanced).toBe(true);
+    expect(advanceToFinalsBody.action).toBe('finals');
+    expect(advanceToFinalsBody.finalists).toBeGreaterThan(0);
+    expect(mockSession.votingState).toBe('finals');
+    expect(mockSession.votingPool?.finalistReflectionIds).toEqual([
+      reflectionIds.clean1,
+      reflectionIds.clean2,
+      reflectionIds.amber1,
+    ]);
+
+    // ============================================
+    // STEP 7: Get finalists ballots to verify round 2 structure
     // ============================================
     for (const studentId of studentIds) {
       const studentToken = tokens[studentId as keyof typeof tokens];
@@ -383,21 +527,72 @@ describe('Voting Integration – Full Flow', () => {
     }
 
     // ============================================
-    // STEP 7: Reveal winner
+    // STEP 8: Finals voting - all students vote for clean1
     // ============================================
-    mockSession.votingState = 'reveal';
-    mockSession.votingPool = {
-      ...mockSession.votingPool!,
-      winnerReflectionId: reflectionIds.clean1,
-      rankedTop3: [
-        { reflectionId: reflectionIds.clean1, voteCount: 5 },
-        { reflectionId: reflectionIds.clean2, voteCount: 3 },
-        { reflectionId: reflectionIds.clean3, voteCount: 2 },
-      ],
+    // Finals finalists should be [clean1, clean2, amber1] from selectFinalists mock
+    // All students vote for clean1 (spec requirement)
+    const finalsVotes = {
+      student1: reflectionIds.clean1,
+      student2: reflectionIds.clean1,
+      student3: reflectionIds.clean1,
+      student4: reflectionIds.clean1,
+      student5: reflectionIds.clean1,
     };
 
+    for (const [studentId, reflectionId] of Object.entries(finalsVotes)) {
+      const studentToken = tokens[studentId as keyof typeof tokens];
+      const voteRequest = new Request(
+        `http://localhost/api/session/${sessionId}/voting/vote?token=${studentToken}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reflectionId }),
+        }
+      );
+
+      const voteResponse = await POST_VOTE(voteRequest, { params: Promise.resolve({ sessionId }) } as any);
+      expect(voteResponse.status).toBe(200);
+
+      const voteBody = await voteResponse.json();
+      expect(voteBody.success).toBe(true);
+      expect(voteBody.round).toBe(2);
+      expect(voteBody.voteCount).toBeGreaterThan(0);
+    }
+
     // ============================================
-    // STEP 8: Verify ballot shows winner + rankings
+    // STEP 9: Advance from finals to reveal
+    // ============================================
+    const advanceToRevealRequest = new Request(
+      `http://localhost/api/session/${sessionId}/voting/advance`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'finals_to_reveal' }),
+      }
+    );
+
+    // Mock teacher auth for this request
+    vi.mocked(requireTeacherSession).mockResolvedValueOnce({ uid: teacherId } as any);
+
+    const advanceToRevealResponse = await POST_ADVANCE(advanceToRevealRequest, {
+      params: Promise.resolve({ sessionId }),
+    } as any);
+    expect(advanceToRevealResponse.status).toBe(200);
+
+    const advanceToRevealBody = await advanceToRevealResponse.json();
+    expect(advanceToRevealBody.advanced).toBe(true);
+    expect(advanceToRevealBody.action).toBe('reveal');
+    expect(advanceToRevealBody.winner).toBeDefined();
+    expect(advanceToRevealBody.winner.reflectionId).toBe(reflectionIds.clean1);
+    expect(advanceToRevealBody.winner.voteCount).toBe(5);
+    expect(advanceToRevealBody.rankedTop3).toBeDefined();
+    // rankedTop3 includes all reflections that received votes, up to 3
+    // Since only clean1 received votes, length is 1
+    expect(advanceToRevealBody.rankedTop3.length).toBeGreaterThan(0);
+    expect(advanceToRevealBody.rankedTop3.length).toBeLessThanOrEqual(3);
+    expect(mockSession.votingState).toBe('reveal');
+    expect(mockSession.votingPool?.winnerReflectionId).toBe(reflectionIds.clean1);
+
+    // ============================================
+    // STEP 10: Verify ballot shows winner + rankings
     // ============================================
     const ballotRevealRequest = new Request(
       `http://localhost/api/session/${sessionId}/voting/ballot?token=${tokens.student1}`,
@@ -415,6 +610,8 @@ describe('Voting Integration – Full Flow', () => {
     expect(ballotRevealBody.winner.reflectionId).toBe(reflectionIds.clean1);
     expect(ballotRevealBody.winner.voteCount).toBe(5);
     expect(ballotRevealBody.rankedTop3).toBeDefined();
-    expect(ballotRevealBody.rankedTop3.length).toBe(3);
+    // rankedTop3 includes all reflections that received votes, up to 3
+    expect(ballotRevealBody.rankedTop3.length).toBeGreaterThan(0);
+    expect(ballotRevealBody.rankedTop3.length).toBeLessThanOrEqual(3);
   });
 });
