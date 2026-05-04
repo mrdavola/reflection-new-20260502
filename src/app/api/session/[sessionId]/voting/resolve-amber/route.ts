@@ -12,10 +12,6 @@ const ResolveAmberSchema = z.object({
   ),
 });
 
-type AuthContext = {
-  teacherId?: string;
-};
-
 export async function POST(
   request: Request,
   { params }: { params: { sessionId: string } }
@@ -32,16 +28,9 @@ export async function POST(
     if (!session) return notFound('Session not found.');
 
     // Check authorization: teacher must own the session
-    // The auth context should contain the teacher's ID
-    // For now, we check that the session has an owner
-    if (!session.teacherId) {
-      return badRequest('Session has no teacher assigned.');
+    if (auth.uid !== session.teacherId) {
+      return forbidden('You do not have access to this session.');
     }
-
-    // Note: In a real implementation, we would compare the authenticated teacher
-    // from the auth context with session.teacherId. For this endpoint, the
-    // requireTeacherSession already validates that a teacher is authenticated.
-    // In tests, we mock the teacher ownership via getSession.
 
     // Check if votingState is "review_pending"
     if (session.votingState !== 'review_pending') {

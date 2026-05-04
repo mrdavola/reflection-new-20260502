@@ -464,9 +464,10 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
   });
 
   it('should return 403 when teacher does not own the session', async () => {
+    const sessionOwnerTeacherId = 'session-owner';
     const mockSession: Session = {
       id: sessionId,
-      teacherId: 'different-teacher',
+      teacherId: sessionOwnerTeacherId,
       routineId: 'see-think-wonder',
       title: 'Test Session',
       learningTarget: '',
@@ -498,7 +499,8 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue({ teacherId } as any);
+    // Mock a different teacher (not the session owner) making the request
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: 'different-teacher' } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
     const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
@@ -507,11 +509,11 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
     });
 
     const response = await POST_RESOLVE_AMBER(request, { params: { sessionId } } as any);
-    expect([403, 400]).toContain(response.status);
+    expect(response.status).toBe(403);
   });
 
   it('should return 404 when session not found', async () => {
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(null);
 
     const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
@@ -558,7 +560,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
     const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
@@ -607,7 +609,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
     const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
@@ -654,7 +656,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
     const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
@@ -701,7 +703,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
 
     const request = new Request('http://localhost/api/session/test-session-amber/voting/resolve-amber', {
@@ -750,7 +752,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
     vi.mocked(updateSession).mockResolvedValue(undefined);
 
@@ -819,7 +821,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
     vi.mocked(updateSession).mockResolvedValue(undefined);
 
@@ -872,7 +874,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
     vi.mocked(updateSession).mockResolvedValue(undefined);
 
@@ -936,7 +938,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
     vi.mocked(updateSession).mockResolvedValue(undefined);
 
@@ -993,7 +995,7 @@ describe('POST /api/session/[sessionId]/voting/resolve-amber', () => {
       },
     };
 
-    vi.mocked(requireTeacherSession).mockResolvedValue(undefined);
+    vi.mocked(requireTeacherSession).mockResolvedValue({ uid: teacherId } as any);
     vi.mocked(getSession).mockResolvedValue(mockSession);
     vi.mocked(updateSession).mockResolvedValue(undefined);
 
