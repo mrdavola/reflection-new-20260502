@@ -15,8 +15,23 @@ import {
 import { AccountMenu } from "@/app/teacher/account-menu";
 import { getPriorityCards, getTeacherNextMove } from "@/lib/actionability";
 import { getRoutineDashboardPanels } from "@/lib/dashboard-panels";
+import { getRoutine } from "@/lib/routines";
 import type { DashboardPayload } from "@/lib/models";
-import type { ClassThinkingMap, RoutineStepLabel } from "@/lib/types";
+import type {
+  ClassThinkingMap,
+  RoutineStepLabel,
+  SafetyAlert,
+  VotingState,
+} from "@/lib/types";
+import VotingControls from "../voting-controls";
+import AmberModal from "../voting-amber-modal";
+import VotingResults from "../voting-results";
+
+interface AmberResponse {
+  id: string;
+  transcription: string;
+  alert: SafetyAlert;
+}
 
 export default function LiveDashboard({ sessionId }: { sessionId: string }) {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
@@ -26,13 +41,98 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
   );
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [votingState, setVotingState] = useState<VotingState>("inactive");
+  const [amberResponses, setAmberResponses] = useState<AmberResponse[]>([]);
+  const [votingError, setVotingError] = useState<string | null>(null);
+  const [authorsRevealed, setAuthorsRevealed] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     const response = await fetch(`/api/sessions/${sessionId}`, { cache: "no-store" });
     if (!response.ok) return;
     const data = await response.json();
     setDashboard(data);
+    setVotingState(data.session.votingState || "inactive");
   }, [sessionId]);
+
+  const handleStartVoting = async () => {
+    try {
+      const res = await fetch(`/api/session/${sessionId}/voting/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.skipped) {
+          setVotingError(data.reason || "Voting skipped");
+          setVotingState("ended");
+        } else {
+          setVotingState("review_pending");
+          if (data.amberFlaggedResponses && data.amberFlaggedResponses.length > 0) {
+            setAmberResponses(data.amberFlaggedResponses);
+          } else {
+            setVotingState("round_1");
+          }
+        }
+      } else {
+        const errorData = await res.json();
+        setVotingError(errorData.message || "Failed to start voting");
+      }
+    } catch {
+      setVotingError("Network error starting voting");
+    }
+  };
+
+  const handleAmberResolved = () => {
+    setAmberResponses([]);
+    setVotingState("round_1");
+    void loadDashboard();
+  };
+
+  const handleStateChange = (newState: VotingState) => {
+    setVotingState(newState);
+    setVotingError(null);
+    void loadDashboard();
+  };
+
+  const handleVotingAdvance = async (action: string) => {
+    try {
+      const res = await fetch(`/api/session/${sessionId}/voting/advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newState =
+          data.votingState || (action === "reveal_to_discuss" ? "discuss" : "ended");
+        setVotingState(newState as VotingState);
+        setVotingError(null);
+      } else {
+        const errorData = await res.json();
+        setVotingError(errorData.message || "Failed to advance voting");
+      }
+    } catch {
+      setVotingError("Network error advancing voting");
+    }
+  };
+
+  const handleRevealAuthors = async () => {
+    try {
+      const res = await fetch(`/api/session/${sessionId}/voting/reveal-authors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        setAuthorsRevealed(true);
+      } else {
+        const errorData = await res.json();
+        setVotingError(errorData.message || "Failed to reveal authors");
+      }
+    } catch {
+      setVotingError("Network error revealing authors");
+    }
+  };
 
   async function generateSummary() {
     setLoadingSummary(true);
@@ -506,6 +606,77 @@ export default function LiveDashboard({ sessionId }: { sessionId: string }) {
           )}
 
           <aside className="space-y-5">
+            {getRoutine(session.routineId).peerVotingDefault && (
+              <section className="panel p-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="display-type text-2xl font-bold">Peer voting</h2>
+                </div>
+                {votingError && (
+                  <div className="mt-3 rounded-[16px] border-2 border-black bg-[#fd4401] p-3 text-sm font-bold text-white">
+                    {votingError}
+                  </div>
+                )}
+                {votingState === "inactive" && (
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold leading-6">
+                      {session.joinedCount < 5
+                        ? `Need at least 5 students to start voting (currently ${session.joinedCount})`
+                        : "Ready to start peer voting."}
+                    </p>
+                    <button
+                      onClick={handleStartVoting}
+                      disabled={session.joinedCount < 5}
+                      className="focus-ring mt-3 inline-flex w-full items-center justify-center rounded-full border-2 border-black bg-[#006cff] px-5 py-3 font-black text-white disabled:opacity-50"
+                    >
+                      Start voting
+                    </button>
+                  </div>
+                )}
+                {votingState !== "inactive" && (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs font-black uppercase tracking-[0.08em]">
+                      State: {votingState}
+                    </p>
+                    <VotingControls
+                      sessionId={sessionId}
+                      votingState={votingState}
+                      reflectionCount={session.joinedCount}
+                      onStateChange={handleStateChange}
+                      onError={setVotingError}
+                    />
+                  </div>
+                )}
+                {votingState === "review_pending" && amberResponses.length > 0 && (
+                  <AmberModal
+                    responses={amberResponses}
+                    sessionId={sessionId}
+                    onResolve={handleAmberResolved}
+                    onError={setVotingError}
+                  />
+                )}
+                {votingState === "reveal" && session.votingPool?.rankedTop3 && (
+                  <div className="mt-3">
+                    <VotingResults
+                      topThree={session.votingPool.rankedTop3.map((r) => {
+                        const reflection = reflections.find((ref) => ref.id === r.reflectionId);
+                        const transcription = reflection?.steps[0]?.transcription || "";
+                        return {
+                          reflectionId: r.reflectionId,
+                          studentName: r.studentName,
+                          voteCount: r.voteCount,
+                          transcription,
+                        };
+                      })}
+                      authorsRevealed={authorsRevealed}
+                      onRevealAuthors={handleRevealAuthors}
+                      onDiscuss={() => handleVotingAdvance("reveal_to_discuss")}
+                      onEnd={() => handleVotingAdvance("discuss_to_ended")}
+                    />
+                  </div>
+                )}
+              </section>
+            )}
+
             <section className="panel p-5">
               <div className="flex items-center justify-between">
                 <h2 className="display-type text-2xl font-bold">Priority cards</h2>
